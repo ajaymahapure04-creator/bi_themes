@@ -109,6 +109,38 @@ export function CellVisual({ type, d, t, idx, headerBg }) {
   return null;
 }
 
+// Read-only, self-contained KPI card -- same visual formula as ReportPreview's
+// inline kpicharts-strip card (border-top accent, label/value/delta), minus
+// the pencil-edit affordance that only makes sense in the editable live
+// preview. Used by Summary.jsx and KpiDeepDive.jsx for both KPI sources (the
+// kpicharts strip and plain "kpi"-typed grid cells), so both render
+// identically there even though ReportPreview renders them two different ways.
+// onClick is optional -- Summary passes one to let a click drill into
+// KpiDeepDive; a plain reference/context card (e.g. KpiDeepDive's "other
+// KPIs" row) can omit it and stay non-interactive.
+export function KpiCard({ k, t, idx, onClick, active }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: t.background, borderRadius: t.cardRadius,
+        borderTop: `3px solid ${t.dataColors[idx % t.dataColors.length]}`,
+        borderRight: `1px solid ${active ? t.dataColors[idx % t.dataColors.length] : shade(t.background, -20)}`,
+        borderBottom: `1px solid ${active ? t.dataColors[idx % t.dataColors.length] : shade(t.background, -20)}`,
+        borderLeft: `1px solid ${active ? t.dataColors[idx % t.dataColors.length] : shade(t.background, -20)}`,
+        padding: "10px 12px",
+        cursor: onClick ? "pointer" : "default",
+      }}
+    >
+      <div style={{ fontSize: t.labelSize, color: t.secondaryForeground, fontWeight: 500 }}>{k.label}{onClick && <span style={{ marginLeft: 5, fontSize: t.labelSize - 1, color: t.tableAccent }}>⤷ drill in</span>}</div>
+      <div style={{ fontSize: t.calloutSize * 0.72, fontWeight: 700, color: t.foreground, lineHeight: 1.15, margin: "2px 0" }}>{k.value}</div>
+      {k.delta != null && (
+        <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.up ? t.good : t.bad }}>{k.up ? "▲" : "▼"} {k.delta}</div>
+      )}
+    </div>
+  );
+}
+
 // filters/dataset/onSetSelection are only passed once real filters exist (see
 // ReportPreview.jsx) -- an empty `filters` array renders today's static,
 // non-interactive domain-demo pills. addFilter/removeFilter (only passed from
@@ -116,7 +148,7 @@ export function CellVisual({ type, d, t, idx, headerBg }) {
 // new "✎ Edit" trigger that opens FilterConfigPopover -- the same add/remove
 // UI the sidebar's Filters section already has, reachable without leaving
 // the live preview.
-export function SlicerTop({ d, t, filters, dataset, onSetSelection, addFilter, removeFilter }) {
+export function SlicerTop({ d, t, filters, dataset, onSetSelection, addFilter, removeFilter, hideEditAffordances }) {
   const [openId, setOpenId] = useState(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [configAnchor, setConfigAnchor] = useState(null);
@@ -157,7 +189,7 @@ export function SlicerTop({ d, t, filters, dataset, onSetSelection, addFilter, r
         );
       })}
       <div onClick={hasFilters ? clearAll : undefined} style={{ fontSize: t.labelSize + 0.5, color: t.secondaryForeground, border: `1px dashed ${shade(t.background, -30)}`, borderRadius: 999, padding: "3.5px 11px", cursor: hasFilters ? "pointer" : "default" }}>Clear all ✕</div>
-      {addFilter && (
+      {addFilter && !hideEditAffordances && (
         <button onClick={(e) => { setConfigAnchor(e.currentTarget.getBoundingClientRect()); setConfigOpen(true); }} title="Edit filters"
           style={{ fontSize: t.labelSize, color: t.secondaryForeground, background: "transparent", border: `1px dashed ${shade(t.background, -30)}`, borderRadius: 999, padding: "3.5px 9px", cursor: "pointer" }}>✎ Edit</button>
       )}
@@ -168,7 +200,7 @@ export function SlicerTop({ d, t, filters, dataset, onSetSelection, addFilter, r
   );
 }
 
-export function SlicerLeft({ d, t, filters, dataset, onSetSelection, addFilter, removeFilter }) {
+export function SlicerLeft({ d, t, filters, dataset, onSetSelection, addFilter, removeFilter, hideEditAffordances }) {
   const [configOpen, setConfigOpen] = useState(false);
   const [configAnchor, setConfigAnchor] = useState(null);
   const hasFilters = filters && filters.length > 0;
@@ -182,7 +214,7 @@ export function SlicerLeft({ d, t, filters, dataset, onSetSelection, addFilter, 
     <div className="flex-shrink-0 self-stretch" style={{ width: 128, background: t.background, borderRadius: t.cardRadius, border: `1px solid ${shade(t.background, -20)}`, padding: "10px 10px", overflowY: "auto" }}>
       <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
         <span style={{ fontSize: t.labelSize, color: t.foreground, fontWeight: 700, letterSpacing: 0.3, textTransform: "uppercase" }}>Filters</span>
-        {addFilter && (
+        {addFilter && !hideEditAffordances && (
           <button onClick={(e) => { setConfigAnchor(e.currentTarget.getBoundingClientRect()); setConfigOpen(true); }} title="Edit filters"
             style={{ fontSize: 10, color: t.secondaryForeground, background: "transparent", border: "none", cursor: "pointer", flexShrink: 0 }}>✎</button>
         )}

@@ -14,6 +14,8 @@ Built with **Next.js 15 · React 19 · Tailwind CSS · Claude API**.
 - **Theme pair (light + dark)** — design one theme, the dark/light twin is auto-derived with re-tuned colors; ☀/☾ preview toggle and dual export, plus the bookmark-method guide for a dark-mode toggle in Power BI
 - **16:9 canvas aware** — preview locks to the real Power BI page proportions (16:9 / 4:3 / fit-width), with a configurable header band (logo + title, adjustable height)
 - **Exports** — light + dark Power BI `theme.json` pair (View → Themes → Browse) and a `layout-spec.json` build sheet with exact x/y/width/height pixel coordinates for the header band, slicers, KPI strip and every cell (type straight into Power BI's Position pane; the input for future .pbit generation)
+- **Share as PNG/PDF** — download whichever preview page is active as a themed, full-resolution image or PDF
+- **Insights mode** — a 2-page, read-only view of your report (Prev/Next to flip): **Summary** (every chart/table cell gets a short AI-written "AI Summary" caption, one batched Claude call per "⟲ Regenerate insights" click) and **KPI Deep Dive** (click any KPI to drill into it — a bigger hero stat, the real Filters bar, and the same related visuals rendered larger with fuller captions). A separate **Edit Report** mode holds the actual editable Power BI-style canvas (Layout tab cell picking/binding, "Tap any cell to edit") — switching modes never resets your work, since all pages stay mounted underneath
 - **Auto-save** — the whole project persists in the browser between sessions
 
 ## Getting started
@@ -57,29 +59,35 @@ Everything except the AI tab works without a key.
 
 ```
 app/
-├── page.jsx                      # entry — renders the Studio
-├── layout.jsx                    # fonts (next/font) + metadata
-├── globals.css                   # Tailwind + chrome styling
-└── api/generate-theme/route.js   # server-side Claude call (key stays here)
+├── page.jsx                        # entry — renders the Studio
+├── layout.jsx                      # fonts (next/font) + metadata
+├── globals.css                     # Tailwind + chrome styling
+└── api/
+    ├── generate-theme/route.js     # server-side Claude call: theme + layout (key stays here)
+    └── generate-insights/route.js  # server-side Claude call: Summary page captions
 components/
-├── Studio.jsx                    # state, orchestration, auto-save
-├── ReportPreview.jsx             # live Power BI-style canvas
-├── CellVisual.jsx                # per-cell visual renderer + slicers
+├── Studio.jsx                    # state, orchestration, auto-save; owns view mode (Insights <-> Edit Report) + AI-caption fetch
+├── Summary.jsx                   # Insights page 1 — read-only AI insights grid, clickable KPIs
+├── KpiDeepDive.jsx               # Insights page 2 — one KPI's detail view (hero stat, real filters, larger related visuals)
+├── ReportPreview.jsx             # Edit Report mode — the actual editable Power BI-style canvas
+├── CellVisual.jsx                # per-cell visual renderer, KPI card, + slicers
 ├── charts.jsx                    # SVG chart primitives
 ├── ui.jsx                        # shared chrome primitives
 └── panels/                       # the 5 workflow panels
 lib/
 ├── data.js                       # domains, visuals, presets — add a domain here
 ├── theme-builder.js              # Power BI theme.json + layout spec builders
+├── useReportVisuals.js           # shared KPI/chart-cell derivation hook (Summary, KpiDeepDive, Studio's AI-caption fetch)
+├── export-image.js               # shared PNG/PDF rasterization (Studio + Summary + KpiDeepDive)
 ├── utils.js                      # color math, logo palette extraction
 └── chrome.js                     # studio design tokens
 ```
 
 ## Security notes
 
-- The Anthropic key is read from `process.env` inside the API route only. The browser calls `/api/generate-theme`, never Anthropic directly.
+- The Anthropic key is read from `process.env` inside the API routes only. The browser calls `/api/generate-theme` or `/api/generate-insights`, never Anthropic directly.
 - `.env.local` is git-ignored. Never commit it.
-- The route validates prompt length (max 1000 chars). For a public deployment, add rate limiting (e.g. Vercel KV or upstash) before sharing the URL widely.
+- Both routes validate their input (prompt length, visual count/shape). For a public deployment, add rate limiting (e.g. Vercel KV or upstash) before sharing the URL widely.
 
 ## Roadmap ideas
 

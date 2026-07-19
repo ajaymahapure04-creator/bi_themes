@@ -7,11 +7,13 @@ import { buildPowerBITheme, buildLayoutSpec, deriveTwin } from "../lib/theme-bui
 import { normalizeCells } from "../lib/layout-cells";
 import { EMPTY_DATASET, loadDataset } from "../lib/dataset";
 import { sanitizeAiBinding } from "../lib/binding-engine";
-import { toPng, toJpeg } from "html-to-image";
-import jsPDF from "jspdf";
+import { exportNodeAsPng, exportNodeAsPdf } from "../lib/export-image";
+import { useReportVisuals, buildVisualPayload, unwrapResolved } from "../lib/useReportVisuals";
 import { Y, chrome, fonts } from "../lib/chrome";
 import { AccordionSection } from "./ui";
 import ReportPreview from "./ReportPreview";
+import Summary from "./Summary";
+import KpiDeepDive from "./KpiDeepDive";
 import { TemplatePanel, LayoutPanel, BrandPanel } from "./panels/CorePanels";
 import { AIPanel, ExportPanel } from "./panels/AIExportPanels";
 
@@ -51,9 +53,28 @@ export default function Studio() {
   const [undo, setUndo] = useState(null); // { message, onUndo } | null -- single-step, no persistent history
   const [exporting, setExporting] = useState(null); // "png" | "pdf" | null -- which share-export is in flight
   const [exportError, setExportError] = useState("");
+  // Live preview has two top-level modes: "insights" (read-only Summary <->
+  // KPI Deep Dive, paged with Prev/Next) and "edit" (today's ReportPreview --
+  // the actual editable canvas the Layout tab's cell picker/binding editor
+  // and every export depend on). Insights defaults to page 0 (Summary), same
+  // as opening a real Power BI report lands on its first page.
+  const [viewMode, setViewMode] = useState("insights"); // "insights" | "edit"
+  const [previewPage, setPreviewPage] = useState(0); // 0 = Summary, 1 = KPI Deep Dive (insights mode only)
+  const [selectedKpiIndex, setSelectedKpiIndex] = useState(0); // which KPI Deep Dive is focused on
+  const [captionsByIndex, setCaptionsByIndex] = useState({}); // shared between Summary and KpiDeepDive
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState("");
   const fileRef = useRef(null);
   const undoTimerRef = useRef(null);
-  const previewRef = useRef(null); // the live ReportPreview's root canvas node, for PNG/PDF export
+  const previewRef = useRef(null); // ReportPreview's root canvas node (edit mode), for PNG/PDF export
+  const summaryRef = useRef(null); // Summary's root canvas node (insights, page 0)
+  const deepDiveRef = useRef(null); // KpiDeepDive's root canvas node (insights, page 1)
+
+  // Same derived KPI/chart data Summary and KpiDeepDive compute for
+  // themselves -- needed here too, just for building the /api/generate-insights
+  // request body (captions are shared between both pages, so the fetch lives
+  // here once instead of in either page).
+  const { d: reportDomain, insightableCells } = useReportVisuals({ layout, dataset, domainKey });
 
   // Single-step "Undo" toast for destructive actions (Reset, a visual-type
   // switch that drops an existing binding). Not a full history -- just enough
@@ -216,6 +237,14 @@ export default function Studio() {
     setSelectedCell(i);
   };
 
+  // Clicking a KPI card on Summary (or the "other KPIs" row on KpiDeepDive
+  // itself) drills into that KPI's deep dive -- same idea as clicking a cell
+  // in the Report page, just for the read-only insights pages.
+  const onSelectKpi = (i) => {
+    setSelectedKpiIndex(i);
+    setPreviewPage(1);
+  };
+
   const onLogo = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -351,20 +380,60 @@ export default function Studio() {
     } catch (e) { /* clipboard unavailable */ }
   };
 
-  // Rasterize the live preview's own root node (not the zoomed/scaled wrapper
-  // around it) so the exported image is always full-resolution regardless of
-  // the on-screen zoom level. previewTheme.secondaryBackground is the page
-  // background behind the canvas -- passed explicitly so any transparent
-  // areas don't get flattened to black/white by the rasterizer's default.
-  // PDF uses JPEG rather than PNG: jsPDF re-encodes PNG input as a raw/
-  // lightly-compressed bitmap stream instead of keeping PNG's own
-  // compression, which bloated a ~200KB PNG into an 8MB PDF. JPEG's stream
-  // gets embedded by jsPDF nearly as-is, so the PDF stays close to the
-  // JPEG's own size.
-  const capturePreviewImage = async (format) => {
-    if (!previewRef.current) throw new Error("Preview isn't ready yet.");
-    const opts = { pixelRatio: 2, cacheBust: true, backgroundColor: previewTheme.secondaryBackground };
-    return format === "jpeg" ? toJpeg(previewRef.current, { ...opts, quality: 0.95 }) : toPng(previewRef.current, opts);
+  // One batched call for every chart/table cell's caption, shared by Summary
+  // and KpiDeepDive (both just read captionsByIndex as a prop) -- triggered
+  // from the shared toolbar's "Regenerate insights" button, not by either page.
+  const askInsights = async () => {
+    if (insightsLoading || !insightableCells.length) return;
+    setInsightsLoading(true);
+    setInsightsError("");
+    try {
+      const res = await fetch("/api/generate-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: reportDomain.label,
+          visuals: insightableCells.map(({ i, cell, resolved, title }) => ({
+            id: i,
+            type: cell.type,
+            title,
+            data: buildVisualPayload(cell.type, unwrapResolved(cell.type, resolved)),
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Request failed (${res.status})`);
+      }
+      const parsed = await res.json();
+      if (!Array.isArray(parsed.captions)) throw new Error("Unexpected response shape.");
+      setCaptionsByIndex((prev) => {
+        const next = { ...prev };
+        parsed.captions.forEach((c) => { if (Number.isInteger(c.id)) next[c.id] = c.caption; });
+        return next;
+      });
+    } catch (err) {
+      setInsightsError(err.message || "Couldn't generate insights. Try again.");
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
+  // setExporting(...) below hides the per-cell ✎ edit buttons on the Report
+  // page (ReportPreview reads `exporting` as its hideEditAffordances prop --
+  // Summary/KpiDeepDive have no edit affordances to hide, being read-only
+  // already); exportNodeAsPng/Pdf (lib/export-image.js) wait for that to
+  // actually paint before rasterizing, then capture whichever page is
+  // currently active's own root node (not the zoomed/scaled wrapper around
+  // it) so the exported image is always full-resolution regardless of the
+  // on-screen zoom level.
+  const activePreviewNode = () => {
+    if (viewMode === "edit") return previewRef.current;
+    return previewPage === 0 ? summaryRef.current : deepDiveRef.current;
+  };
+  const exportFilenameBase = () => {
+    if (viewMode === "edit") return `${slug}-preview`;
+    return previewPage === 0 ? `${slug}-summary` : `${slug}-kpi-deep-dive`;
   };
 
   const exportPreviewPng = async () => {
@@ -372,11 +441,7 @@ export default function Studio() {
     setExporting("png");
     setExportError("");
     try {
-      const dataUrl = await capturePreviewImage("png");
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${slug}-preview.png`;
-      a.click();
+      await exportNodeAsPng(activePreviewNode(), `${exportFilenameBase()}.png`, { backgroundColor: previewTheme.secondaryBackground });
     } catch (e) {
       setExportError("Couldn't export the preview as PNG. Try again.");
     } finally {
@@ -389,12 +454,7 @@ export default function Studio() {
     setExporting("pdf");
     setExportError("");
     try {
-      const node = previewRef.current;
-      const w = node.offsetWidth, h = node.offsetHeight;
-      const dataUrl = await capturePreviewImage("jpeg");
-      const pdf = new jsPDF({ orientation: w >= h ? "landscape" : "portrait", unit: "px", format: [w, h] });
-      pdf.addImage(dataUrl, "JPEG", 0, 0, w, h);
-      pdf.save(`${slug}-preview.pdf`);
+      await exportNodeAsPdf(activePreviewNode(), `${exportFilenameBase()}.pdf`, { backgroundColor: previewTheme.secondaryBackground });
     } catch (e) {
       setExportError("Couldn't export the preview as PDF. Try again.");
     } finally {
@@ -488,10 +548,41 @@ export default function Studio() {
 
         {/* live preview */}
         <div className="flex-1 p-4 min-w-0">
+          {/* Top-level mode: read-only Insights (Summary <-> KPI Deep Dive) vs.
+              the actual editable Report canvas -- Layout-tab cell picking/
+              binding and every export still work exactly as before, just
+              reached via "Edit Report" instead of always being "page 2". */}
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
+              <button onClick={() => setViewMode("insights")} className="px-3 py-1.5 text-xs font-bold"
+                style={{ background: viewMode === "insights" ? Y : chrome.panel, color: viewMode === "insights" ? "#17181D" : chrome.sub }}>📊 Insights</button>
+              <button onClick={() => setViewMode("edit")} className="px-3 py-1.5 text-xs font-bold"
+                style={{ background: viewMode === "edit" ? Y : chrome.panel, color: viewMode === "edit" ? "#17181D" : chrome.sub }}>✎ Edit Report</button>
+            </div>
+            {viewMode === "insights" && (
+              <>
+                <button onClick={() => setPreviewPage(0)} disabled={previewPage === 0} className="px-3 py-1.5 text-xs font-semibold rounded-md"
+                  style={{ background: chrome.panel, color: previewPage === 0 ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}`, cursor: previewPage === 0 ? "default" : "pointer" }}>‹ Prev</button>
+                <span style={{ fontSize: 11.5, color: chrome.sub }}>{previewPage === 0 ? "Page 1 of 2 — Summary" : "Page 2 of 2 — KPI Deep Dive"}</span>
+                <button onClick={() => setPreviewPage(1)} disabled={previewPage === 1} className="px-3 py-1.5 text-xs font-semibold rounded-md"
+                  style={{ background: chrome.panel, color: previewPage === 1 ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}`, cursor: previewPage === 1 ? "default" : "pointer" }}>Next ›</button>
+              </>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
-            <div style={{ ...fonts.disp, fontSize: 13, fontWeight: 600, color: chrome.text }}>Live report preview</div>
+            <div style={{ ...fonts.disp, fontSize: 13, fontWeight: 600, color: chrome.text }}>
+              {viewMode === "edit" ? "Live report preview" : previewPage === 0 ? "Summary" : "KPI Deep Dive"}
+            </div>
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: 11, color: chrome.sub }}>Tap any cell to edit</span>
+              {viewMode === "insights" ? (
+                <button onClick={askInsights} disabled={insightsLoading}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md" style={{ background: chrome.panel, color: insightsLoading ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}` }}>
+                  {insightsLoading ? "Generating…" : "⟲ Regenerate insights"}
+                </button>
+              ) : (
+                <span style={{ fontSize: 11, color: chrome.sub }}>Tap any cell to edit</span>
+              )}
               <div className="flex items-center rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
                 <button onClick={() => setPreviewZoom((z) => Math.max(50, z - 10))} className="px-2.5 py-1.5 text-xs font-bold" style={{ background: chrome.panel, color: chrome.sub }}>−</button>
                 <button onClick={() => setPreviewZoom(100)} title="Reset zoom" className="px-2 py-1.5" style={{ background: chrome.panel, color: chrome.sub, fontSize: 10.5, ...fonts.mono }}>{previewZoom}%</button>
@@ -504,11 +595,11 @@ export default function Studio() {
                 ))}
               </div>
               <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
-                <button onClick={exportPreviewPng} disabled={!!exporting} title="Download the live preview as a PNG image"
+                <button onClick={exportPreviewPng} disabled={!!exporting} title="Download this page as a PNG image"
                   className="px-2.5 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, cursor: exporting ? "default" : "pointer" }}>
                   {exporting === "png" ? "Exporting…" : "⤓ PNG"}
                 </button>
-                <button onClick={exportPreviewPdf} disabled={!!exporting} title="Download the live preview as a PDF"
+                <button onClick={exportPreviewPdf} disabled={!!exporting} title="Download this page as a PDF"
                   className="px-2.5 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, borderLeft: `1px solid ${chrome.line}`, cursor: exporting ? "default" : "pointer" }}>
                   {exporting === "pdf" ? "Exporting…" : "⤓ PDF"}
                 </button>
@@ -520,10 +611,27 @@ export default function Studio() {
               Viewing the auto-derived {previewMode} twin — colors are re-tuned from your base theme for {previewMode} backgrounds. Edits in Brand always apply to the base; the twin follows.
             </p>
           )}
+          {viewMode === "insights" && insightsError && <p className="mb-2" style={{ fontSize: 10.5, color: "#F87171" }}>{insightsError}</p>}
           {exportError && <p className="mb-2" style={{ fontSize: 10.5, color: "#F87171" }}>{exportError}</p>}
           <div style={{ overflow: previewZoom > 100 ? "auto" : "visible" }}>
             <div style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: "top left" }}>
-              <ReportPreview ref={previewRef} domainKey={domainKey} theme={previewTheme} layout={layout} logo={logo} selectedCell={selectedCell} onSelectCell={onSelectCell} dataset={dataset} setCellVisual={setCellVisual} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} setFilterSelection={setFilterSelection} setCellHeaderBg={setCellHeaderBg} addFilter={addFilter} removeFilter={removeFilter} />
+              {/* All three stay mounted, toggled by display:none rather than a
+                  ternary -- switching modes/pages is meant to feel like
+                  flipping pages, not navigating away, so Summary's generated
+                  captions and the Report page's selection/editing state
+                  shouldn't reset just from glancing elsewhere. */}
+              <div style={{ display: viewMode === "insights" && previewPage === 0 ? "block" : "none" }}>
+                <Summary ref={summaryRef} theme={previewTheme} layout={layout} dataset={dataset} domainKey={domainKey} logo={logo}
+                  captionsByIndex={captionsByIndex} onSelectKpi={onSelectKpi} />
+              </div>
+              <div style={{ display: viewMode === "insights" && previewPage === 1 ? "block" : "none" }}>
+                <KpiDeepDive ref={deepDiveRef} theme={previewTheme} layout={layout} dataset={dataset} domainKey={domainKey} logo={logo}
+                  captionsByIndex={captionsByIndex} selectedKpiIndex={selectedKpiIndex} onSelectKpi={onSelectKpi}
+                  addFilter={addFilter} removeFilter={removeFilter} setFilterSelection={setFilterSelection} />
+              </div>
+              <div style={{ display: viewMode === "edit" ? "block" : "none" }}>
+                <ReportPreview ref={previewRef} domainKey={domainKey} theme={previewTheme} layout={layout} logo={logo} selectedCell={selectedCell} onSelectCell={onSelectCell} dataset={dataset} setCellVisual={setCellVisual} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} setFilterSelection={setFilterSelection} setCellHeaderBg={setCellHeaderBg} addFilter={addFilter} removeFilter={removeFilter} hideEditAffordances={!!exporting} />
+              </div>
             </div>
           </div>
         </div>
