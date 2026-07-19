@@ -7,6 +7,8 @@ import { buildPowerBITheme, buildLayoutSpec, deriveTwin } from "../lib/theme-bui
 import { normalizeCells } from "../lib/layout-cells";
 import { EMPTY_DATASET, loadDataset } from "../lib/dataset";
 import { sanitizeAiBinding } from "../lib/binding-engine";
+import { toPng, toJpeg } from "html-to-image";
+import jsPDF from "jspdf";
 import { Y, chrome, fonts } from "../lib/chrome";
 import { AccordionSection } from "./ui";
 import ReportPreview from "./ReportPreview";
@@ -47,8 +49,11 @@ export default function Studio() {
   const [hydrated, setHydrated] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [undo, setUndo] = useState(null); // { message, onUndo } | null -- single-step, no persistent history
+  const [exporting, setExporting] = useState(null); // "png" | "pdf" | null -- which share-export is in flight
+  const [exportError, setExportError] = useState("");
   const fileRef = useRef(null);
   const undoTimerRef = useRef(null);
+  const previewRef = useRef(null); // the live ReportPreview's root canvas node, for PNG/PDF export
 
   // Single-step "Undo" toast for destructive actions (Reset, a visual-type
   // switch that drops an existing binding). Not a full history -- just enough
@@ -346,6 +351,57 @@ export default function Studio() {
     } catch (e) { /* clipboard unavailable */ }
   };
 
+  // Rasterize the live preview's own root node (not the zoomed/scaled wrapper
+  // around it) so the exported image is always full-resolution regardless of
+  // the on-screen zoom level. previewTheme.secondaryBackground is the page
+  // background behind the canvas -- passed explicitly so any transparent
+  // areas don't get flattened to black/white by the rasterizer's default.
+  // PDF uses JPEG rather than PNG: jsPDF re-encodes PNG input as a raw/
+  // lightly-compressed bitmap stream instead of keeping PNG's own
+  // compression, which bloated a ~200KB PNG into an 8MB PDF. JPEG's stream
+  // gets embedded by jsPDF nearly as-is, so the PDF stays close to the
+  // JPEG's own size.
+  const capturePreviewImage = async (format) => {
+    if (!previewRef.current) throw new Error("Preview isn't ready yet.");
+    const opts = { pixelRatio: 2, cacheBust: true, backgroundColor: previewTheme.secondaryBackground };
+    return format === "jpeg" ? toJpeg(previewRef.current, { ...opts, quality: 0.95 }) : toPng(previewRef.current, opts);
+  };
+
+  const exportPreviewPng = async () => {
+    if (exporting) return;
+    setExporting("png");
+    setExportError("");
+    try {
+      const dataUrl = await capturePreviewImage("png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${slug}-preview.png`;
+      a.click();
+    } catch (e) {
+      setExportError("Couldn't export the preview as PNG. Try again.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportPreviewPdf = async () => {
+    if (exporting) return;
+    setExporting("pdf");
+    setExportError("");
+    try {
+      const node = previewRef.current;
+      const w = node.offsetWidth, h = node.offsetHeight;
+      const dataUrl = await capturePreviewImage("jpeg");
+      const pdf = new jsPDF({ orientation: w >= h ? "landscape" : "portrait", unit: "px", format: [w, h] });
+      pdf.addImage(dataUrl, "JPEG", 0, 0, w, h);
+      pdf.save(`${slug}-preview.pdf`);
+    } catch (e) {
+      setExportError("Couldn't export the preview as PDF. Try again.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const resetProject = () => {
     const snapshot = { domainKey, theme, layout, logo, brandName, brandNote, tab, selectedCell };
     localStorage.removeItem(STORAGE_KEY);
@@ -447,6 +503,16 @@ export default function Studio() {
                     style={{ background: previewMode === m ? Y : chrome.panel, color: previewMode === m ? "#17181D" : chrome.sub }}>{l}</button>
                 ))}
               </div>
+              <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
+                <button onClick={exportPreviewPng} disabled={!!exporting} title="Download the live preview as a PNG image"
+                  className="px-2.5 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, cursor: exporting ? "default" : "pointer" }}>
+                  {exporting === "png" ? "Exporting…" : "⤓ PNG"}
+                </button>
+                <button onClick={exportPreviewPdf} disabled={!!exporting} title="Download the live preview as a PDF"
+                  className="px-2.5 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, borderLeft: `1px solid ${chrome.line}`, cursor: exporting ? "default" : "pointer" }}>
+                  {exporting === "pdf" ? "Exporting…" : "⤓ PDF"}
+                </button>
+              </div>
             </div>
           </div>
           {previewIsTwin && (
@@ -454,9 +520,10 @@ export default function Studio() {
               Viewing the auto-derived {previewMode} twin — colors are re-tuned from your base theme for {previewMode} backgrounds. Edits in Brand always apply to the base; the twin follows.
             </p>
           )}
+          {exportError && <p className="mb-2" style={{ fontSize: 10.5, color: "#F87171" }}>{exportError}</p>}
           <div style={{ overflow: previewZoom > 100 ? "auto" : "visible" }}>
             <div style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: "top left" }}>
-              <ReportPreview domainKey={domainKey} theme={previewTheme} layout={layout} logo={logo} selectedCell={selectedCell} onSelectCell={onSelectCell} dataset={dataset} setCellVisual={setCellVisual} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} setFilterSelection={setFilterSelection} setCellHeaderBg={setCellHeaderBg} addFilter={addFilter} removeFilter={removeFilter} />
+              <ReportPreview ref={previewRef} domainKey={domainKey} theme={previewTheme} layout={layout} logo={logo} selectedCell={selectedCell} onSelectCell={onSelectCell} dataset={dataset} setCellVisual={setCellVisual} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} setFilterSelection={setFilterSelection} setCellHeaderBg={setCellHeaderBg} addFilter={addFilter} removeFilter={removeFilter} />
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { DOMAINS, PRESETS, PAGE_SIZES } from "../lib/data";
 import { alpha, shade } from "../lib/utils";
 import { Y } from "../lib/chrome";
@@ -9,8 +9,11 @@ import CellEditPopover from "./CellEditPopover";
 
 /* The live Power BI report canvas. In locked mode (16:9 / 4:3) the canvas keeps
    the exact page proportions and grid rows share true heights; the header band
-   height renders as its real fraction of the canvas. Cells are tappable. */
-export default function ReportPreview({ domainKey, theme, layout, logo, selectedCell, onSelectCell, dataset, setCellVisual, setCellBinding, setKpiStripBinding, setFilterSelection, setCellHeaderBg, addFilter, removeFilter }) {
+   height renders as its real fraction of the canvas. Cells are tappable.
+   Forwards a ref to the root canvas node so Studio can rasterize it for the
+   PNG/PDF share export -- independent of the on-screen zoom transform, which
+   lives on an ancestor and doesn't affect this node's own layout box. */
+const ReportPreview = forwardRef(function ReportPreview({ domainKey, theme, layout, logo, selectedCell, onSelectCell, dataset, setCellVisual, setCellBinding, setKpiStripBinding, setFilterSelection, setCellHeaderBg, addFilter, removeFilter }, ref) {
   // { anchorRect, isKpiStrip, index } | null -- drives the in-place edit
   // popover, a faster alternative to scrolling the sidebar's Layout tab.
   const [editing, setEditing] = useState(null);
@@ -75,7 +78,7 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
   };
 
   return (
-    <div style={canvasStyle}>
+    <div ref={ref} style={canvasStyle}>
       {/* header band — reserved space for logo + dashboard title */}
       {showHeader && (
         <div className="flex items-center justify-between" style={{ gap: 10, ...(locked ? { height: `${headerPct}%`, flexShrink: 0, marginBottom: 6 } : { marginBottom: 12 }) }}>
@@ -182,4 +185,6 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
       )}
     </div>
   );
-}
+});
+
+export default ReportPreview;
