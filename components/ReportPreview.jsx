@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { DOMAINS, PRESETS, PAGE_SIZES } from "../lib/data";
 import { alpha, shade } from "../lib/utils";
 import { Y } from "../lib/chrome";
@@ -9,8 +9,11 @@ import CellEditPopover from "./CellEditPopover";
 
 /* The live Power BI report canvas. In locked mode (16:9 / 4:3) the canvas keeps
    the exact page proportions and grid rows share true heights; the header band
-   height renders as its real fraction of the canvas. Cells are tappable. */
-export default function ReportPreview({ domainKey, theme, layout, logo, selectedCell, onSelectCell, dataset, setCellVisual, setCellBinding, setKpiStripBinding, setFilterSelection, setCellHeaderBg, addFilter, removeFilter }) {
+   height renders as its real fraction of the canvas. Cells are tappable.
+   Forwards a ref to the root canvas node so Studio can rasterize it for the
+   PNG/PDF share export -- independent of the on-screen zoom transform, which
+   lives on an ancestor and doesn't affect this node's own layout box. */
+const ReportPreview = forwardRef(function ReportPreview({ domainKey, theme, layout, logo, selectedCell, onSelectCell, dataset, setCellVisual, setCellBinding, setKpiStripBinding, setFilterSelection, setCellHeaderBg, addFilter, removeFilter, hideEditAffordances }, ref) {
   // { anchorRect, isKpiStrip, index } | null -- drives the in-place edit
   // popover, a faster alternative to scrolling the sidebar's Layout tab.
   const [editing, setEditing] = useState(null);
@@ -75,7 +78,7 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
   };
 
   return (
-    <div style={canvasStyle}>
+    <div ref={ref} style={canvasStyle}>
       {/* header band — reserved space for logo + dashboard title */}
       {showHeader && (
         <div className="flex items-center justify-between" style={{ gap: 10, ...(locked ? { height: `${headerPct}%`, flexShrink: 0, marginBottom: 6 } : { marginBottom: 12 }) }}>
@@ -94,12 +97,12 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
       )}
 
       {layout.slicerPos === "top" && (
-        <SlicerTop d={d} t={t} filters={layout.filters} dataset={dataset} onSetSelection={setFilterSelection} addFilter={addFilter} removeFilter={removeFilter} />
+        <SlicerTop d={d} t={t} filters={layout.filters} dataset={dataset} onSetSelection={setFilterSelection} addFilter={addFilter} removeFilter={removeFilter} hideEditAffordances={hideEditAffordances} />
       )}
 
       <div className="flex gap-2.5" style={locked ? { flex: 1, minHeight: 0 } : {}}>
         {layout.slicerPos === "left" && (
-          <SlicerLeft d={d} t={t} filters={layout.filters} dataset={dataset} onSetSelection={setFilterSelection} addFilter={addFilter} removeFilter={removeFilter} />
+          <SlicerLeft d={d} t={t} filters={layout.filters} dataset={dataset} onSetSelection={setFilterSelection} addFilter={addFilter} removeFilter={removeFilter} hideEditAffordances={hideEditAffordances} />
         )}
         <div className="flex-1 min-w-0" style={locked ? { display: "flex", flexDirection: "column", minHeight: 0 } : {}}>
           {/* fixed KPI strip for the kpicharts preset */}
@@ -118,11 +121,13 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
                   borderLeft: `1px solid ${isEditingThis ? Y : shade(t.background, -20)}`,
                   padding: "10px 12px",
                 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditing({ anchorRect: e.currentTarget.getBoundingClientRect(), isKpiStrip: true, index: i }); }}
-                    title="Edit this KPI"
-                    style={{ position: "absolute", top: 5, right: 7, fontSize: 9, lineHeight: 1, color: alpha(t.foreground, 0.55), background: alpha(t.background, 0.9), border: `1px solid ${shade(t.background, -20)}`, borderRadius: 4, padding: "2px 5px", cursor: "pointer", zIndex: 1 }}
-                  >✎</button>
+                  {!hideEditAffordances && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditing({ anchorRect: e.currentTarget.getBoundingClientRect(), isKpiStrip: true, index: i }); }}
+                      title="Edit this KPI"
+                      style={{ position: "absolute", top: 5, right: 7, fontSize: 9, lineHeight: 1, color: alpha(t.foreground, 0.55), background: alpha(t.background, 0.9), border: `1px solid ${shade(t.background, -20)}`, borderRadius: 4, padding: "2px 5px", cursor: "pointer", zIndex: 1 }}
+                    >✎</button>
+                  )}
                   <div style={{ fontSize: t.labelSize, color: t.secondaryForeground, fontWeight: 500 }}>{k.label}</div>
                   <div style={{ fontSize: t.calloutSize * 0.72, fontWeight: 700, color: t.foreground, lineHeight: 1.15, margin: "2px 0" }}>{k.value}</div>
                   {k.delta != null && (
@@ -142,11 +147,13 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
             {layout.cells.map((cell, i) => (
               <div key={i} style={card(i)} onClick={(e) => { onSelectCell(i); setEditing({ anchorRect: e.currentTarget.getBoundingClientRect(), isKpiStrip: false, index: i }); }} title="Tap to edit this cell">
                 <div style={{ position: "absolute", top: 5, right: 7, display: "flex", alignItems: "center", gap: 4, zIndex: 1 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onSelectCell(i); setEditing({ anchorRect: e.currentTarget.getBoundingClientRect(), isKpiStrip: false, index: i }); }}
-                    title="Edit this cell"
-                    style={{ fontSize: 9, lineHeight: 1, color: alpha(t.foreground, 0.55), background: alpha(t.background, 0.9), border: `1px solid ${shade(t.background, -20)}`, borderRadius: 4, padding: "2px 5px", cursor: "pointer" }}
-                  >✎</button>
+                  {!hideEditAffordances && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onSelectCell(i); setEditing({ anchorRect: e.currentTarget.getBoundingClientRect(), isKpiStrip: false, index: i }); }}
+                      title="Edit this cell"
+                      style={{ fontSize: 9, lineHeight: 1, color: alpha(t.foreground, 0.55), background: alpha(t.background, 0.9), border: `1px solid ${shade(t.background, -20)}`, borderRadius: 4, padding: "2px 5px", cursor: "pointer" }}
+                    >✎</button>
+                  )}
                   <span style={{ fontSize: 9, fontWeight: 700, color: selectedCell === i ? "#8a7208" : alpha(t.foreground, 0.28), background: selectedCell === i ? alpha(Y, 0.9) : "transparent", borderRadius: 4, padding: "1px 5px" }}>{i + 1}</span>
                 </div>
                 <CellVisual type={cell.type} d={resolvedCells[i]} t={t} idx={i} headerBg={cell.headerBg} />
@@ -182,4 +189,6 @@ export default function ReportPreview({ domainKey, theme, layout, logo, selected
       )}
     </div>
   );
-}
+});
+
+export default ReportPreview;
