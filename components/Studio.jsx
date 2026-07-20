@@ -10,12 +10,72 @@ import { sanitizeAiBinding } from "../lib/binding-engine";
 import { exportNodeAsPng, exportNodeAsPdf } from "../lib/export-image";
 import { useReportVisuals, buildVisualPayload, unwrapResolved } from "../lib/useReportVisuals";
 import { Y, chrome, fonts } from "../lib/chrome";
-import { AccordionSection } from "./ui";
+import { AccordionSection, Stepper } from "./ui";
 import ReportPreview from "./ReportPreview";
 import Summary from "./Summary";
 import KpiDeepDive from "./KpiDeepDive";
 import { TemplatePanel, LayoutPanel, BrandPanel } from "./panels/CorePanels";
-import { AIPanel, ExportPanel } from "./panels/AIExportPanels";
+import DataPanel from "./panels/DataPanel";
+import { AIPanel, OrderPanel } from "./panels/AIExportPanels";
+
+const WIZARD_STEPS = [
+  { id: "identity", label: "Brand & Identity" },
+  { id: "data", label: "Data" },
+  { id: "layout", label: "Layout" },
+  { id: "order", label: "Validate & Order" },
+];
+
+// Extracts which dataset table(s) a cell's binding references, regardless of
+// visual type's binding shape -- used only to flag stale bindings (a table
+// that got removed after the cell was bound) in the pre-Order checklist.
+function bindingTableIds(type, binding) {
+  if (!binding) return [];
+  switch (type) {
+    case "kpi": case "column": case "bar": case "donut":
+      return binding.metric?.table ? [binding.metric.table] : [];
+    case "line": case "area":
+      return (binding.series || []).map((s) => s.metric?.table).filter(Boolean);
+    case "table":
+      if (binding.mode === "raw") return binding.table ? [binding.table] : [];
+      if (binding.mode === "grouped") return (binding.metrics || []).map((m) => m.table).filter(Boolean);
+      return [];
+    default: return [];
+  }
+}
+
+// Pre-flight checklist shown on the Validate & Order step. Gates the Order
+// button on real errors (nothing chart-safe to show, empty layout) while
+// letting warnings (stale bindings, an imported-but-empty table) through --
+// those degrade gracefully in preview already, they just deserve a flag
+// before a client-facing package gets generated from them.
+function computeValidation(theme, layout, dataset) {
+  const rows = [];
+  let hasError = false;
+
+  const colorCount = new Set((theme.dataColors || []).filter(Boolean)).size;
+  if (colorCount >= 4) rows.push({ status: "ok", text: `${colorCount} data colors set.` });
+  else { rows.push({ status: "error", text: "Fewer than 4 data colors are set — pick a company or set colors manually in Brand & Identity." }); hasError = true; }
+
+  const realCells = layout.cells.filter((c) => c.type !== "text");
+  if (realCells.length > 0) rows.push({ status: "ok", text: `${realCells.length} chart/KPI cell${realCells.length === 1 ? "" : "s"} laid out.` });
+  else { rows.push({ status: "error", text: "The layout has no chart or KPI cells yet — add at least one in Layout." }); hasError = true; }
+
+  const tableCount = Object.keys(dataset.tables).length;
+  if (!tableCount) {
+    rows.push({ status: "ok", text: "Using starter demo data for every cell." });
+  } else {
+    const hasFact = Object.values(dataset.tables).some((t) => t.role === "fact" && t.rowCount > 0);
+    if (hasFact) rows.push({ status: "ok", text: `${tableCount} table${tableCount === 1 ? "" : "s"} imported and ready to bind.` });
+    else rows.push({ status: "warn", text: "Tables are imported but none are a non-empty fact table — bound cells will fall back to demo data." });
+  }
+
+  let staleCount = 0;
+  layout.cells.forEach((c) => bindingTableIds(c.type, c.binding).forEach((t) => { if (!dataset.tables[t]) staleCount++; }));
+  (layout.kpiStripBindings || []).forEach((b) => bindingTableIds("kpi", b).forEach((t) => { if (!dataset.tables[t]) staleCount++; }));
+  if (staleCount > 0) rows.push({ status: "warn", text: `${staleCount} cell binding${staleCount === 1 ? "" : "s"} point at a table that no longer exists — re-bind in Layout before ordering.` });
+
+  return { rows, canOrder: !hasError };
+}
 
 const STORAGE_KEY = "bi-theme-studio-project-v1";
 
@@ -36,11 +96,16 @@ export default function Studio() {
   const [logo, setLogo] = useState(null);
   const [brandName, setBrandName] = useState(null);
   const [brandNote, setBrandNote] = useState("");
-  const [tab, setTab] = useState("template");
+  const [tab, setTab] = useState("identity");
   // Which accordion sections have been opened at least once -- lets the
-  // sidebar show "visited" vs "not yet looked at" without implying the
-  // 1-5 numbering is a required order (nothing actually gates on it).
-  const [visitedTabs, setVisitedTabs] = useState(() => new Set(["template"]));
+  // sidebar/stepper show "visited" vs "not yet looked at" without implying
+  // the 1-4 numbering is a hard gate on navigation (every step stays
+  // reachable any time; only the Order button itself is gated, on validation).
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set(["identity"]));
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const [orderStatus, setOrderStatus] = useState(null); // null | "queued" | "preparing" | "packaging" | "ready"
+  const orderTimersRef = useRef([]);
+  const orderMountedRef = useRef(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiImage, setAiImage] = useState(null); // base64 data URL or null -- ephemeral, not autosaved (matches aiPrompt)
   const [aiLoading, setAiLoading] = useState(false);
@@ -127,6 +192,17 @@ export default function Studio() {
     if (!tab) return;
     setVisitedTabs((v) => (v.has(tab) ? v : new Set(v).add(tab)));
   }, [tab]);
+
+  // A completed order reflects a specific snapshot of theme/layout/dataset --
+  // any further edit makes that package stale, so send Order back to "not
+  // ordered yet" rather than let a client download a package that no longer
+  // matches what's on screen. Skipped on the very first render (hydration).
+  useEffect(() => {
+    if (!orderMountedRef.current) { orderMountedRef.current = true; return; }
+    setOrderStatus((s) => (s === "ready" ? null : s));
+  }, [theme, layout, domainKey, dataset]);
+
+  useEffect(() => () => orderTimersRef.current.forEach(clearTimeout), []);
 
   // When the base theme flips mode (e.g. AI generates a dark design),
   // snap the preview toggle to show the base — not its derived twin.
@@ -462,6 +538,20 @@ export default function Studio() {
     }
   };
 
+  const validation = computeValidation(theme, layout, dataset);
+
+  const startOrder = () => {
+    if (!validation.canOrder || (orderStatus && orderStatus !== "ready")) return;
+    orderTimersRef.current.forEach(clearTimeout);
+    orderTimersRef.current = [];
+    setOrderStatus("queued");
+    let delay = 500;
+    for (const s of ["preparing", "packaging", "ready"]) {
+      orderTimersRef.current.push(setTimeout(() => setOrderStatus(s), delay));
+      delay += 550;
+    }
+  };
+
   const resetProject = () => {
     const snapshot = { domainKey, theme, layout, logo, brandName, brandNote, tab, selectedCell };
     localStorage.removeItem(STORAGE_KEY);
@@ -472,7 +562,8 @@ export default function Studio() {
     setBrandName(null);
     setBrandNote("");
     setSelectedCell(null);
-    setTab("template");
+    setTab("identity");
+    setOrderStatus(null);
     showUndo("Project reset.", () => {
       setDomainKey(snapshot.domainKey);
       setTheme(snapshot.theme);
@@ -492,11 +583,14 @@ export default function Studio() {
         <div className="flex items-center gap-2.5">
           <div style={{ width: 30, height: 30, borderRadius: 8, background: Y, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#17181D", ...fonts.disp, fontSize: 15 }}>◪</div>
           <div>
-            <div style={{ ...fonts.disp, fontWeight: 700, fontSize: 16, color: chrome.text, lineHeight: 1.1 }}>BI Theme Studio</div>
-            <div style={{ fontSize: 10.5, color: chrome.sub }}>AI-assisted UI/UX + layout for Power BI developers</div>
+            <div style={{ ...fonts.disp, fontWeight: 700, fontSize: 16, color: chrome.text, lineHeight: 1.1 }}>Accelerator Dashboard</div>
+            <div style={{ fontSize: 10.5, color: chrome.sub }}>Brand → Data → Layout → Validate → Order — a guided path to a client-ready Power BI report</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setAiDrawerOpen(true)} className="px-3 py-2 text-xs font-semibold rounded-md" style={{ background: "transparent", color: chrome.sub, border: `1px solid ${chrome.line}` }}>
+            ✦ AI Assist
+          </button>
           <button onClick={() => setPanelOpen((o) => !o)} className="px-3 py-2 text-xs font-semibold rounded-md" style={{ background: "transparent", color: chrome.sub, border: `1px solid ${chrome.line}` }}>
             {panelOpen ? "⟨⟨ Hide panel" : "Show panel ⟩⟩"}
           </button>
@@ -504,12 +598,6 @@ export default function Studio() {
             ⛁ Data Model
           </Link>
           <button onClick={resetProject} className="px-3 py-2 text-xs font-semibold rounded-md" style={{ background: "transparent", color: chrome.sub, border: `1px solid ${chrome.line}` }}>Reset</button>
-          <button onClick={copyJson} title="Copies the base theme only — for both light and dark, use Export pair" className="px-3 py-2 text-xs font-semibold rounded-md" style={{ background: "transparent", color: chrome.text, border: `1px solid ${chrome.line}` }}>
-            {copied ? "Copied ✓" : "Copy theme"}
-          </button>
-          <button onClick={downloadPair} className="px-3.5 py-2 text-xs font-bold rounded-md" style={{ background: Y, color: "#17181D" }}>
-            ⬇ Export pair
-          </button>
         </div>
       </div>
 
@@ -520,24 +608,25 @@ export default function Studio() {
             <button onClick={() => setPanelOpen(false)} title="Hide panel" aria-label="Hide panel"
               className="hidden lg:flex items-center justify-center absolute top-4 -right-3 w-6 h-6 rounded-full z-10"
               style={{ background: chrome.panel, color: chrome.sub, border: `1px solid ${chrome.line}`, fontSize: 12 }}>‹</button>
-            <AccordionSection id="ai" step={1} label="AI Assist" subtitle="Describe the report, let Claude design it" tab={tab} setTab={setTab} visited={visitedTabs.has("ai")}>
-              <AIPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} aiImage={aiImage} setAiImage={setAiImage} onAiImage={onAiImage} askAI={askAI} aiLoading={aiLoading} aiError={aiError} rationale={theme.rationale} dataset={dataset} />
-            </AccordionSection>
 
-            <AccordionSection id="template" step={2} label="Template" subtitle="Industry, company & colors" tab={tab} setTab={setTab} visited={visitedTabs.has("template")}>
+            <Stepper steps={WIZARD_STEPS} activeId={tab} onJump={setTab} doneIds={visitedTabs} />
+
+            <AccordionSection id="identity" step={1} label="Brand & Identity" subtitle="Industry, company, logo, colors & font" tab={tab} setTab={setTab} visited={visitedTabs.has("identity")}>
               <TemplatePanel domainKey={domainKey} pickDomain={pickDomain} brandName={brandName} brandNote={brandNote} pickBrand={pickBrand} clearBrand={clearBrand} />
-            </AccordionSection>
-
-            <AccordionSection id="layout" step={3} label="Layout" subtitle="Grid, slicers & page size" tab={tab} setTab={setTab} visited={visitedTabs.has("layout")}>
-              <LayoutPanel layout={layout} setLayout={setLayout} selectedCell={selectedCell} setSelectedCell={setSelectedCell} pickPreset={pickPreset} setCellVisual={setCellVisual} dataset={dataset} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} addFilter={addFilter} removeFilter={removeFilter} />
-            </AccordionSection>
-
-            <AccordionSection id="brand" step={4} label="Brand" subtitle="Logo, colors & text" tab={tab} setTab={setTab} visited={visitedTabs.has("brand")}>
+              <div className="my-3" style={{ borderTop: `1px solid ${chrome.line}` }} />
               <BrandPanel theme={theme} set={set} logo={logo} setLogo={setLogo} onLogo={onLogo} fileRef={fileRef} />
             </AccordionSection>
 
-            <AccordionSection id="export" step={5} label="Export" subtitle="Download theme.json & layout spec" tab={tab} setTab={setTab} visited={visitedTabs.has("export")}>
-              <ExportPanel theme={theme} set={set} themeJson={themeJson} lightJson={lightJson} darkJson={darkJson} layoutJson={layoutJson} slug={slug} downloadFile={downloadFile} downloadPair={downloadPair} copyJson={copyJson} copied={copied} />
+            <AccordionSection id="data" step={2} label="Data" subtitle="Starter demo data, or import the client's own" tab={tab} setTab={setTab} visited={visitedTabs.has("data")}>
+              <DataPanel dataset={dataset} setDataset={setDataset} />
+            </AccordionSection>
+
+            <AccordionSection id="layout" step={3} label="Layout" subtitle="Grid, slicers, page size & cell bindings" tab={tab} setTab={setTab} visited={visitedTabs.has("layout")}>
+              <LayoutPanel layout={layout} setLayout={setLayout} selectedCell={selectedCell} setSelectedCell={setSelectedCell} pickPreset={pickPreset} setCellVisual={setCellVisual} dataset={dataset} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} addFilter={addFilter} removeFilter={removeFilter} />
+            </AccordionSection>
+
+            <AccordionSection id="order" step={4} label="Validate & Order" subtitle="Check the live preview, then order the package" tab={tab} setTab={setTab} visited={visitedTabs.has("order")}>
+              <OrderPanel theme={theme} set={set} validation={validation} orderStatus={orderStatus} startOrder={startOrder} themeJson={themeJson} lightJson={lightJson} darkJson={darkJson} layoutJson={layoutJson} slug={slug} downloadFile={downloadFile} downloadPair={downloadPair} copyJson={copyJson} copied={copied} />
             </AccordionSection>
           </div>
         ) : (
@@ -643,6 +732,26 @@ export default function Studio() {
           <span style={{ fontSize: 12.5, color: chrome.text }}>{undo.message}</span>
           <button onClick={performUndo} className="px-3 py-1.5 text-xs font-bold rounded-md flex-shrink-0" style={{ background: Y, color: "#17181D" }}>Undo</button>
           <button onClick={() => setUndo(null)} aria-label="Dismiss" className="flex-shrink-0" style={{ fontSize: 12, color: chrome.sub }}>✕</button>
+        </div>
+      )}
+
+      {/* AI Assist is an optional accelerator, not a required step in the
+          Brand -> Data -> Layout -> Order path -- it lives in an overlay
+          drawer instead of consuming a step number, so the guided flow reads
+          the same whether or not it's ever opened. */}
+      {aiDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+          <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.55)" }} onClick={() => setAiDrawerOpen(false)} />
+          <div className="relative w-full sm:w-[420px] h-full p-4 overflow-y-auto" style={{ background: chrome.bg, borderLeft: `1px solid ${chrome.line}`, boxShadow: "-12px 0 32px rgba(0,0,0,0.45)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div style={{ ...fonts.disp, fontSize: 14, fontWeight: 700, color: chrome.text }}>✦ AI Assist</div>
+                <div style={{ fontSize: 10.5, color: chrome.sub }}>Optional — describe the report, let Claude design it</div>
+              </div>
+              <button onClick={() => setAiDrawerOpen(false)} aria-label="Close" style={{ fontSize: 14, color: chrome.sub }}>✕</button>
+            </div>
+            <AIPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} aiImage={aiImage} setAiImage={setAiImage} onAiImage={onAiImage} askAI={askAI} aiLoading={aiLoading} aiError={aiError} rationale={theme.rationale} dataset={dataset} />
+          </div>
         </div>
       )}
     </div>

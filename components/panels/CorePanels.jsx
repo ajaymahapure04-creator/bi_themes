@@ -630,6 +630,9 @@ export function BrandPanel({ theme, set, logo, setLogo, onLogo, fileRef }) {
         <select value={theme.fontFamily} onChange={(e) => set({ fontFamily: e.target.value })} className="w-full p-2 rounded-md text-sm" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>
           {REPORT_FONTS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
+        <p className="mt-1.5" style={{ fontSize: 10.5, color: chrome.sub, lineHeight: 1.5 }}>
+          Picking a company sets colors only, never a font — a client's real brand font usually isn't installed on every machine that opens the report, and Power BI silently falls back when it's missing. This list is limited to fonts that render reliably everywhere.
+        </p>
       </Field>
 
       <Slider label="KPI number size" value={theme.calloutSize} min={22} max={42} suffix="pt" onChange={(v) => set({ calloutSize: v })} />

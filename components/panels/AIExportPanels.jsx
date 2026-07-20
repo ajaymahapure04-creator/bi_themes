@@ -1,7 +1,8 @@
 "use client";
 import { Y, chrome } from "../../lib/chrome";
 import { fonts } from "../../lib/chrome";
-import { Field } from "../ui";
+import { alpha } from "../../lib/utils";
+import { Field, ValidationRow } from "../ui";
 
 export function AIPanel({ aiPrompt, setAiPrompt, aiImage, setAiImage, onAiImage, askAI, aiLoading, aiError, rationale, dataset }) {
   const disabled = aiLoading || (!aiPrompt.trim() && !aiImage);
@@ -59,38 +60,87 @@ export function AIPanel({ aiPrompt, setAiPrompt, aiImage, setAiImage, onAiImage,
   );
 }
 
-export function ExportPanel({ theme, set, themeJson, lightJson, darkJson, layoutJson, slug, downloadFile, downloadPair, copyJson, copied }) {
+// Step 4 of the Accelerator flow: a pre-flight checklist gates the Order
+// button (fixes the old Export panel just always being available regardless
+// of whether the design was actually in a sane state), then a short
+// simulated pipeline stands in for the real PBIP/DAX compiler — see the
+// roadmap note below. What ships today is the same theme + layout-spec
+// package the old Export tab produced; ordering is now a deliberate,
+// validated action instead of an always-on download link.
+const ORDER_STEPS = {
+  queued: "Queued…",
+  preparing: "Preparing brand theme…",
+  packaging: "Packaging layout build sheet…",
+  ready: "Ready",
+};
+
+export function OrderPanel({ theme, set, validation, orderStatus, startOrder, themeJson, lightJson, darkJson, layoutJson, slug, downloadFile, downloadPair, copyJson, copied }) {
+  const ordering = orderStatus && orderStatus !== "ready";
+  const ready = orderStatus === "ready";
+
   return (
     <div>
       <Field label="Theme name">
         <input value={theme.name} onChange={(e) => set({ name: e.target.value })} className="w-full p-2.5 rounded-md text-sm" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }} />
       </Field>
-      <div className="flex flex-col gap-2 mb-3">
-        <button onClick={downloadPair} className="w-full py-2.5 text-sm font-bold rounded-md" style={{ background: Y, color: "#17181D" }}>
-          ⬇ Download theme pair (light + dark)
+
+      <Field label="Pre-flight check">
+        <div className="p-2.5 rounded-md" style={{ background: chrome.panel, border: `1px solid ${chrome.line}` }}>
+          {validation.rows.map((r, i) => <ValidationRow key={i} status={r.status}>{r.text}</ValidationRow>)}
+        </div>
+      </Field>
+
+      {!ready && (
+        <button onClick={startOrder} disabled={!validation.canOrder || ordering}
+          className="w-full py-2.5 text-sm font-bold rounded-md mb-3"
+          style={{ background: !validation.canOrder || ordering ? chrome.panel : Y, color: !validation.canOrder || ordering ? chrome.sub : "#17181D" }}>
+          {ordering ? ORDER_STEPS[orderStatus] : "🡆 Order Power BI accelerator package"}
         </button>
-        <div className="flex gap-2">
-          <button onClick={() => downloadFile(lightJson, `${slug}-light.json`)} className="flex-1 py-2.5 text-xs font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>☀ Light only</button>
-          <button onClick={() => downloadFile(darkJson, `${slug}-dark.json`)} className="flex-1 py-2.5 text-xs font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>☾ Dark only</button>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => downloadFile(layoutJson, "layout-spec.json")} className="flex-1 py-2.5 text-sm font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>⬇ Layout spec</button>
-          <button onClick={copyJson} className="px-4 py-2.5 text-sm font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>{copied ? "✓" : "Copy theme"}</button>
-        </div>
-      </div>
-      <div className="p-3 rounded-md mb-3" style={{ background: chrome.panel, border: `1px solid ${chrome.line}` }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>HOW TO APPLY IN POWER BI</div>
-        <p style={{ fontSize: 12, color: chrome.text, lineHeight: 1.6 }}>
-          Theme: <b>View → Themes → Browse for themes</b> → pick a .json. Layout spec: your build sheet — exact x/y/width/height pixel positions for the header band, slicers, KPI strip and every cell on the canvas (type them into Format → General → Properties → Position).
-        </p>
-      </div>
-      <div className="p-3 rounded-md mb-3" style={{ background: chrome.panel, border: `1px solid ${chrome.line}` }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>DARK MODE TOGGLE (BOOKMARK METHOD)</div>
-        <p style={{ fontSize: 12, color: chrome.text, lineHeight: 1.6 }}>
-          Power BI has no runtime theme switching, so use the standard workaround: 1) Build your page with the <b>light</b> theme applied. 2) Duplicate the page, apply the <b>dark</b> theme styling to the copy. 3) Add a button on each page (Insert → Buttons) with a <b>Page navigation</b> action pointing to the other page. End users get a working ☀/☾ toggle.
-        </p>
-      </div>
-      <pre className="p-3 rounded-md overflow-auto" style={{ ...fonts.mono, fontSize: 10, color: chrome.sub, background: "#121318", border: `1px solid ${chrome.line}`, maxHeight: 220 }}>{themeJson}</pre>
+      )}
+      {!validation.canOrder && !ready && (
+        <p className="mb-3" style={{ fontSize: 10.5, color: "#F87171" }}>Fix the items marked ✕ above before ordering.</p>
+      )}
+
+      {ready && (
+        <>
+          <div className="p-2.5 rounded-md mb-3" style={{ background: alpha("#6EE7B7", 0.1), border: "1px solid #6EE7B7" }}>
+            <span style={{ fontSize: 12, color: chrome.text }}>✓ Your accelerator package is ready below.</span>
+          </div>
+          <div className="flex flex-col gap-2 mb-3">
+            <button onClick={downloadPair} className="w-full py-2.5 text-sm font-bold rounded-md" style={{ background: Y, color: "#17181D" }}>
+              ⬇ Download theme pair (light + dark)
+            </button>
+            <div className="flex gap-2">
+              <button onClick={() => downloadFile(lightJson, `${slug}-light.json`)} className="flex-1 py-2.5 text-xs font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>☀ Light only</button>
+              <button onClick={() => downloadFile(darkJson, `${slug}-dark.json`)} className="flex-1 py-2.5 text-xs font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>☾ Dark only</button>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => downloadFile(layoutJson, "layout-spec.json")} className="flex-1 py-2.5 text-sm font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>⬇ Layout spec</button>
+              <button onClick={copyJson} className="px-4 py-2.5 text-sm font-semibold rounded-md" style={{ background: chrome.panel, color: chrome.text, border: `1px solid ${chrome.line}` }}>{copied ? "✓" : "Copy theme"}</button>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-md mb-3" style={{ background: chrome.panel, border: `1px solid ${chrome.line}` }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>HOW TO APPLY IN POWER BI</div>
+            <p style={{ fontSize: 12, color: chrome.text, lineHeight: 1.6 }}>
+              Theme: <b>View → Themes → Browse for themes</b> → pick a .json. Layout spec: your build sheet — exact x/y/width/height pixel positions for the header band, slicers, KPI strip and every cell on the canvas (type them into Format → General → Properties → Position).
+            </p>
+          </div>
+          <div className="p-3 rounded-md mb-3" style={{ background: chrome.panel, border: `1px solid ${chrome.line}` }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>DARK MODE TOGGLE (BOOKMARK METHOD)</div>
+            <p style={{ fontSize: 12, color: chrome.text, lineHeight: 1.6 }}>
+              Power BI has no runtime theme switching, so use the standard workaround: 1) Build your page with the <b>light</b> theme applied. 2) Duplicate the page, apply the <b>dark</b> theme styling to the copy. 3) Add a button on each page (Insert → Buttons) with a <b>Page navigation</b> action pointing to the other page. End users get a working ☀/☾ toggle.
+            </p>
+          </div>
+          <div className="p-3 rounded-md mb-3" style={{ background: alpha(Y, 0.08), border: `1px solid ${chrome.line}` }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>ON THE ROADMAP</div>
+            <p style={{ fontSize: 12, color: chrome.text, lineHeight: 1.6 }}>
+              This package is the theme + build sheet — you assemble the report in Power BI Desktop from it. Native <b>.pbit</b>/<b>.pbix</b> generation (real DAX measures, real tables, no manual assembly) is the next phase.
+            </p>
+          </div>
+          <pre className="p-3 rounded-md overflow-auto" style={{ ...fonts.mono, fontSize: 10, color: chrome.sub, background: "#121318", border: `1px solid ${chrome.line}`, maxHeight: 220 }}>{themeJson}</pre>
+        </>
+      )}
     </div>
   );
 }
