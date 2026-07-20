@@ -9,6 +9,7 @@ import { EMPTY_DATASET, loadDataset } from "../lib/dataset";
 import { sanitizeAiBinding } from "../lib/binding-engine";
 import { exportNodeAsPng, exportNodeAsPdf } from "../lib/export-image";
 import { useReportVisuals, buildVisualPayload, unwrapResolved } from "../lib/useReportVisuals";
+import { buildPbipProject, zipPbipProject } from "../lib/pbip-export";
 import { Y, chrome, fonts } from "../lib/chrome";
 import { AccordionSection, Stepper } from "./ui";
 import ReportPreview from "./ReportPreview";
@@ -106,6 +107,7 @@ export default function Studio() {
   const [orderStatus, setOrderStatus] = useState(null); // null | "queued" | "preparing" | "packaging" | "ready"
   const orderTimersRef = useRef([]);
   const orderMountedRef = useRef(false);
+  const [pbipStatus, setPbipStatus] = useState(null); // null | "building" | "error"
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiImage, setAiImage] = useState(null); // base64 data URL or null -- ephemeral, not autosaved (matches aiPrompt)
   const [aiLoading, setAiLoading] = useState(false);
@@ -552,6 +554,29 @@ export default function Studio() {
     }
   };
 
+  // Builds the PBIP project (semantic model + report definition, see
+  // lib/pbip-export.js) from the exact theme/layout/dataset behind the live
+  // preview and downloads it as a .zip -- unzip and open the .pbip file in
+  // Power BI Desktop.
+  const downloadPbipProject = async () => {
+    if (pbipStatus === "building") return;
+    setPbipStatus("building");
+    try {
+      const { name, files } = await buildPbipProject({ theme: previewTheme, layout, domainKey, dataset, projectName: theme.name });
+      const blob = await zipPbipProject(files);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${name}.pbip.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setPbipStatus(null);
+    } catch (e) {
+      console.error("PBIP export failed:", e);
+      setPbipStatus("error");
+    }
+  };
+
   const resetProject = () => {
     const snapshot = { domainKey, theme, layout, logo, brandName, brandNote, tab, selectedCell };
     localStorage.removeItem(STORAGE_KEY);
@@ -626,7 +651,7 @@ export default function Studio() {
             </AccordionSection>
 
             <AccordionSection id="order" step={4} label="Validate & Order" subtitle="Check the live preview, then order the package" tab={tab} setTab={setTab} visited={visitedTabs.has("order")}>
-              <OrderPanel theme={theme} set={set} validation={validation} orderStatus={orderStatus} startOrder={startOrder} themeJson={themeJson} lightJson={lightJson} darkJson={darkJson} layoutJson={layoutJson} slug={slug} downloadFile={downloadFile} downloadPair={downloadPair} copyJson={copyJson} copied={copied} />
+              <OrderPanel theme={theme} set={set} validation={validation} orderStatus={orderStatus} startOrder={startOrder} themeJson={themeJson} lightJson={lightJson} darkJson={darkJson} layoutJson={layoutJson} slug={slug} downloadFile={downloadFile} downloadPair={downloadPair} copyJson={copyJson} copied={copied} pbipStatus={pbipStatus} downloadPbipProject={downloadPbipProject} />
             </AccordionSection>
           </div>
         ) : (

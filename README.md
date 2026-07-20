@@ -9,9 +9,19 @@ Built with **Next.js 15 · React 19 · Tailwind CSS · Claude API**.
 1. **Brand & Identity** — pick an industry, then a company (colors applied from a 540-brand reference list) or set colors manually; upload a logo; pick a report font from a safe, widely-installed list (a client's real brand font is deliberately *not* auto-applied — see "Design decisions" below).
 2. **Data** — use the industry's starter demo data (zero setup), or quick-import the client's own CSV tables; a link to the full Data Model page handles multi-table relationships.
 3. **Layout** — grid preset, slicer position, page size, and per-cell visual type + data binding (demo data or the imported dataset).
-4. **Validate & Order** — a pre-flight checklist (data colors set, at least one real visual, no stale bindings) gates the Order button; ordering runs a short pipeline and hands back the downloadable package once it's ready.
+4. **Validate & Order** — a pre-flight checklist (data colors set, at least one real visual, no stale bindings) gates the Order button; ordering runs a short pipeline and hands back the downloadable package once it's ready — the theme + layout spec, and a **Power BI project (.pbip)** (beta, see below).
 
 The live report preview (Insights and Edit Report modes) is always visible alongside every step, so "validate" means literally looking at the real report, not reading a JSON diff.
+
+## PBIP export (beta)
+
+`lib/pbip-export.js` (+ `lib/pbip/plan.js`, `lib/pbip/tmdl.js`, `lib/pbip/report.js`) turns the live theme/layout/dataset into a real [PBIP](https://learn.microsoft.com/power-bi/developer/projects/projects-overview) project — a `.pbip` pointer file plus `<Name>.Report/` (pages, visuals, theme resource) and `<Name>.SemanticModel/` (TMDL tables, relationships, real DAX measures) — zipped for download. Unzip it and open the `.pbip` file directly in Power BI Desktop (needs the "Power BI Project (.pbip) save option" preview feature enabled) — no compiler, no server round-trip.
+
+How data becomes a model:
+- **Cells bound to imported data** get a TMDL table built from the real dataset table/rows and a genuine DAX aggregation measure (`SUM`/`AVERAGE`/`COUNTROWS`/... per the binding's `agg`) — see `planRealMetric` in `lib/pbip/plan.js`.
+- **Unbound (demo) cells** have no underlying transactional data — domain KPI values are hand-written display strings like `"87.6%"`, not numbers — so each one gets its own tiny literal table (the exact numbers/categories currently on screen) and a real `SUM` measure over it. It's a genuine, computable DAX measure; it just isn't "real" BI the way a bound cell over uploaded data is.
+
+**Known limitation:** this has been verified by building the project and checking every JSON file parses and every TMDL table/measure/column reference is internally consistent (see the `plan.js`/`tmdl.js`/`report.js` structure) — but it has **not** been opened in a real Power BI Desktop install to confirm Desktop accepts it without error, since this environment doesn't have one. The TMDL/semantic-model side follows a well-documented, stable schema; the per-visual-type report JSON (`visualType`/`queryState`/`objects` in `lib/pbip/report.js`) is the riskiest part to get exactly right. If Desktop reports a problem opening it, that's expected for a first pass, not a sign the approach is wrong — the theme + layout spec package always works as a manual-assembly fallback.
 
 ## Features
 
@@ -88,6 +98,8 @@ lib/
 ├── theme-builder.js              # Power BI theme.json + layout spec builders
 ├── useReportVisuals.js           # shared KPI/chart-cell derivation hook (Summary, KpiDeepDive, Studio's AI-caption fetch)
 ├── export-image.js               # shared PNG/PDF rasterization (Studio + Summary + KpiDeepDive)
+├── pbip-export.js                # PBIP project assembly + zip (beta — see "PBIP export" above)
+├── pbip/                         # plan.js (tables/measures plan), tmdl.js (semantic model), report.js (pages/visuals)
 ├── utils.js                      # color math, logo palette extraction
 └── chrome.js                     # studio design tokens
 ```
@@ -97,7 +109,7 @@ lib/
 - **Brand sets colors, never font.** A client's real brand font is usually not installed on every machine that opens the report, and Power BI silently falls back when it's missing — so picking a company only ever applies chart-safe colors; font stays a manual pick from a short, reliably-installed list.
 - **Data source is chosen before Layout, not after.** Starter demo data and an imported dataset are interchangeable inputs to the same binding system (`lib/binding-engine.js`) — deciding up front means every cell binding in Layout can point at real columns from the start instead of being rebuilt later.
 - **Order is gated, not an always-on download.** The old Export tab produced files regardless of whether the design was in a sane state; Validate & Order now runs a pre-flight checklist (data colors present, at least one real visual, no bindings pointing at a removed table) and only unlocks the Order button once it passes.
-- **Order is a real (if simulated) pipeline.** Today's package is the same theme + layout-spec output as before — native `.pbit`/`.pbix` generation (real DAX measures over real tables, no manual assembly in Power BI Desktop) is the next phase; see Roadmap.
+- **Order's queued → preparing → packaging pacing is cosmetic**, but what it hands back isn't: the theme + layout spec, plus a real PBIP project (tables, relationships, DAX measures, positioned visuals) — see "PBIP export" above for exactly what's built and its one open caveat (untested against real Power BI Desktop).
 
 ## Security notes
 
