@@ -49,6 +49,52 @@ export function AccordionSection({ id, step, label, subtitle, tab, setTab, visit
   );
 }
 
+// Top-of-sidebar progress stepper for the guided Accelerator flow. Every step
+// stays clickable (jumping ahead/back is always allowed — this signals
+// progress, it doesn't gate navigation), current step highlighted in Y,
+// completed steps get a check, everything else is just numbered.
+export function Stepper({ steps, activeId, onJump, doneIds }) {
+  return (
+    <div className="flex items-center gap-1 mb-3 px-0.5">
+      {steps.map((s, i) => {
+        const active = s.id === activeId;
+        const done = doneIds.has(s.id) && !active;
+        return (
+          <div key={s.id} className="flex items-center flex-1 min-w-0">
+            <button onClick={() => onJump(s.id)} className="flex items-center gap-1.5 min-w-0" title={s.label}>
+              <span style={{
+                ...fonts.mono, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+                width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                color: active ? "#17181D" : done ? "#17181D" : chrome.sub,
+                background: active ? Y : done ? "#6EE7B7" : chrome.panel,
+                border: `1px solid ${active ? Y : done ? "#6EE7B7" : chrome.line}`,
+              }}>{done ? "✓" : i + 1}</span>
+              <span className="truncate hidden sm:inline" style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? chrome.text : chrome.sub }}>{s.label}</span>
+            </button>
+            {i < steps.length - 1 && <span className="flex-1 mx-1.5" style={{ height: 1, background: chrome.line }} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// One line in the pre-Order validation checklist. status: "ok" | "warn" | "error".
+export function ValidationRow({ status, children }) {
+  const icon = status === "ok" ? "✓" : status === "warn" ? "!" : "✕";
+  const color = status === "ok" ? "#6EE7B7" : status === "warn" ? Y : "#F87171";
+  return (
+    <div className="flex items-start gap-2 py-1">
+      <span style={{
+        ...fonts.mono, fontSize: 9.5, fontWeight: 700, flexShrink: 0, marginTop: 1,
+        width: 15, height: 15, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#17181D", background: color,
+      }}>{icon}</span>
+      <span style={{ fontSize: 11.5, color: chrome.text, lineHeight: 1.5 }}>{children}</span>
+    </div>
+  );
+}
+
 export function Field({ label, children }) {
   return (
     <div className="mb-3">

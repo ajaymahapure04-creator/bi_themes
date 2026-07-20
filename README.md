@@ -1,8 +1,17 @@
-# ◪ BI Theme Studio
+# ◪ Accelerator Dashboard
 
-AI-assisted UI/UX design tool for Power BI developers. Pick a domain template, design your grid layout cell by cell, apply your brand, let AI generate theme + layout from plain English, and export a ready-to-import **Power BI theme.json** plus a **layout build sheet**.
+A guided, client-facing path to a themed Power BI report: **Brand & Identity → Data → Layout → Validate & Order**. Pick an industry and a company, decide whether the report runs on starter demo data or the client's own import, lay out the grid cell by cell, check it in a live report preview, then order a ready-to-assemble **Power BI theme.json + layout build sheet** package. An optional AI Assist drawer can design the theme and layout from a plain-English description at any point in the flow.
 
 Built with **Next.js 15 · React 19 · Tailwind CSS · Claude API**.
+
+## The guided flow
+
+1. **Brand & Identity** — pick an industry, then a company (colors applied from a 540-brand reference list) or set colors manually; upload a logo; pick a report font from a safe, widely-installed list (a client's real brand font is deliberately *not* auto-applied — see "Design decisions" below).
+2. **Data** — use the industry's starter demo data (zero setup), or quick-import the client's own CSV tables; a link to the full Data Model page handles multi-table relationships.
+3. **Layout** — grid preset, slicer position, page size, and per-cell visual type + data binding (demo data or the imported dataset).
+4. **Validate & Order** — a pre-flight checklist (data colors set, at least one real visual, no stale bindings) gates the Order button; ordering runs a short pipeline and hands back the downloadable package once it's ready.
+
+The live report preview (Insights and Edit Report modes) is always visible alongside every step, so "validate" means literally looking at the real report, not reading a JSON diff.
 
 ## Features
 
@@ -66,14 +75,14 @@ app/
     ├── generate-theme/route.js     # server-side Claude call: theme + layout (key stays here)
     └── generate-insights/route.js  # server-side Claude call: Summary page captions
 components/
-├── Studio.jsx                    # state, orchestration, auto-save; owns view mode (Insights <-> Edit Report) + AI-caption fetch
+├── Studio.jsx                    # state, orchestration, auto-save; owns the guided wizard (stepper, validation, Order pipeline) + view mode (Insights <-> Edit Report) + AI-caption fetch
 ├── Summary.jsx                   # Insights page 1 — read-only AI insights grid, clickable KPIs
 ├── KpiDeepDive.jsx               # Insights page 2 — one KPI's detail view (hero stat, real filters, larger related visuals)
 ├── ReportPreview.jsx             # Edit Report mode — the actual editable Power BI-style canvas
 ├── CellVisual.jsx                # per-cell visual renderer, KPI card, + slicers
 ├── charts.jsx                    # SVG chart primitives
-├── ui.jsx                        # shared chrome primitives
-└── panels/                       # the 5 workflow panels
+├── ui.jsx                        # shared chrome primitives (Stepper, AccordionSection, ValidationRow, ...)
+└── panels/                       # Brand & Identity / Data / Layout / Validate & Order (+ optional AI Assist) panels
 lib/
 ├── data.js                       # domains, visuals, presets — add a domain here
 ├── theme-builder.js              # Power BI theme.json + layout spec builders
@@ -82,6 +91,13 @@ lib/
 ├── utils.js                      # color math, logo palette extraction
 └── chrome.js                     # studio design tokens
 ```
+
+## Design decisions
+
+- **Brand sets colors, never font.** A client's real brand font is usually not installed on every machine that opens the report, and Power BI silently falls back when it's missing — so picking a company only ever applies chart-safe colors; font stays a manual pick from a short, reliably-installed list.
+- **Data source is chosen before Layout, not after.** Starter demo data and an imported dataset are interchangeable inputs to the same binding system (`lib/binding-engine.js`) — deciding up front means every cell binding in Layout can point at real columns from the start instead of being rebuilt later.
+- **Order is gated, not an always-on download.** The old Export tab produced files regardless of whether the design was in a sane state; Validate & Order now runs a pre-flight checklist (data colors present, at least one real visual, no bindings pointing at a removed table) and only unlocks the Order button once it passes.
+- **Order is a real (if simulated) pipeline.** Today's package is the same theme + layout-spec output as before — native `.pbit`/`.pbix` generation (real DAX measures over real tables, no manual assembly in Power BI Desktop) is the next phase; see Roadmap.
 
 ## Security notes
 
