@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "OTA_Dashboard"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "0139d31d-32f0-46be-b4b0-413adb69f6de"
+  }
+}

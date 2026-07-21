@@ -1,0 +1,475 @@
+table demands
+	lineageTag: c37e0789-2f8e-4bbb-8c35-468849d197ff
+
+	column 'Job Req ID'
+		dataType: int64
+		formatString: 0
+		lineageTag: cefafd75-0084-423f-a517-8fb7023670eb
+		summarizeBy: count
+		sourceColumn: Job Req ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Position ID/Requisition ID'
+		dataType: string
+		lineageTag: 75c359bf-94a9-49a0-9211-307acf09dff0
+		summarizeBy: none
+		sourceColumn: Position ID/Requisition ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Demand Status'
+		dataType: string
+		lineageTag: a73fd9c1-aa41-4588-b536-8dbdbfe43ead
+		summarizeBy: none
+		sourceColumn: Demand Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column SBU-02
+		dataType: string
+		lineageTag: 4817bc07-75d9-42bd-bd99-96cfdb37ef09
+		summarizeBy: none
+		sourceColumn: SBU-02
+
+		annotation SummarizationSetBy = Automatic
+
+	column SBU
+		dataType: string
+		lineageTag: 51ae8a86-d025-44d4-bed0-ab29f9512968
+		summarizeBy: none
+		sourceColumn: SBU
+
+		annotation SummarizationSetBy = Automatic
+
+	column GBU
+		dataType: string
+		lineageTag: 3412fc46-464f-4964-8d26-f8aeb5a304d2
+		summarizeBy: none
+		sourceColumn: GBU
+
+		annotation SummarizationSetBy = Automatic
+
+	column BU
+		dataType: string
+		lineageTag: f292d11f-1953-47b5-9596-77d989547d36
+		summarizeBy: none
+		sourceColumn: BU
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sub BU'
+		dataType: string
+		lineageTag: 36f7919a-970a-4e74-a183-e0adcc4cc89a
+		summarizeBy: none
+		sourceColumn: Sub BU
+
+		annotation SummarizationSetBy = Automatic
+
+	column PU
+		dataType: string
+		lineageTag: 19199776-c0cd-43e6-ba44-0b91f459cf8f
+		summarizeBy: none
+		sourceColumn: PU
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'PU code'
+		dataType: int64
+		formatString: 0
+		lineageTag: c43fbc20-20b8-4b7c-902e-5c4cd5b94fc9
+		summarizeBy: sum
+		sourceColumn: PU code
+
+		annotation SummarizationSetBy = Automatic
+
+	column Competency
+		dataType: string
+		lineageTag: b5cea969-a5e4-4d68-aa92-b1a7ab75f20a
+		summarizeBy: none
+		sourceColumn: Competency
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Hiring Manager'
+		dataType: string
+		lineageTag: c86eea37-ad9e-4a5f-a5fc-74d4557fd366
+		summarizeBy: none
+		sourceColumn: Hiring Manager
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Service Line (From Get Talent)'
+		dataType: string
+		lineageTag: da27818f-fb70-4462-8d01-9b29827f626a
+		summarizeBy: none
+		sourceColumn: Service Line (From Get Talent)
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Position Number (Object)'
+		dataType: string
+		lineageTag: 1d886d42-051b-4126-b130-445e4090c449
+		summarizeBy: none
+		sourceColumn: Position Number (Object)
+
+		annotation SummarizationSetBy = Automatic
+
+	column Practice
+		dataType: string
+		lineageTag: 642fbbc3-9fca-4d13-bb3c-0e56b89ba7b8
+		summarizeBy: none
+		sourceColumn: Practice
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Job Title'
+		dataType: string
+		lineageTag: 4ae4a150-2d51-4729-b9da-cc0671fa7eb2
+		summarizeBy: none
+		sourceColumn: Job Title
+
+		annotation SummarizationSetBy = Automatic
+
+	column Grade
+		dataType: string
+		lineageTag: 98d1156d-d446-4630-962c-59a9bbfe673c
+		summarizeBy: none
+		sourceColumn: Grade
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Unified Grade'
+		dataType: string
+		lineageTag: 9f448102-92c5-4567-b93a-82ee83ee976a
+		summarizeBy: none
+		sourceColumn: Unified Grade
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'External Title'
+		dataType: string
+		lineageTag: 6f05d57f-4f09-4c0a-b715-a21a32caf076
+		summarizeBy: none
+		sourceColumn: External Title
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Requisition Status-01'
+		dataType: string
+		lineageTag: 48961132-8614-4607-9e62-6a03606765c9
+		summarizeBy: none
+		sourceColumn: Requisition Status-01
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Requisition Status-02'
+		dataType: string
+		lineageTag: abdba53b-3aba-4c04-a23a-46b4418f08bc
+		summarizeBy: none
+		sourceColumn: Requisition Status-02
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Date Created'
+		dataType: int64
+		formatString: 0
+		lineageTag: 3329aa8a-e9b8-4960-9bd6-a7f9517fb800
+		summarizeBy: sum
+		sourceColumn: Date Created
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month Created'
+		dataType: string
+		lineageTag: 841b8b94-6132-4d91-b93f-1b2c8a02fea1
+		summarizeBy: none
+		sourceColumn: Month Created
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Approved Date'
+		dataType: int64
+		formatString: 0
+		lineageTag: f8778996-3209-4e0e-877e-4a3333a87611
+		summarizeBy: sum
+		sourceColumn: Approved Date
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Last Modified'
+		dataType: int64
+		formatString: 0
+		lineageTag: 88ed56b8-724b-4202-9faa-ce5705af0857
+		summarizeBy: sum
+		sourceColumn: Last Modified
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Estimated Job Start Date'
+		dataType: int64
+		formatString: 0
+		lineageTag: c4823447-3d8a-406d-9201-9105f4cf40df
+		summarizeBy: sum
+		sourceColumn: Estimated Job Start Date
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Job Start Date'
+		dataType: int64
+		formatString: 0
+		lineageTag: 6f4389a7-41f2-4cd7-b1d7-b99558e91ea0
+		summarizeBy: sum
+		sourceColumn: Job Start Date
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Start Month'
+		dataType: string
+		lineageTag: c9c1fe59-e416-4721-8153-d4c4a72a65b5
+		summarizeBy: none
+		sourceColumn: Start Month
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'RSD (Recruitment Start Date)'
+		dataType: int64
+		formatString: 0
+		lineageTag: 7b2b3462-dee9-4dd8-886d-0c88bcb6fda8
+		summarizeBy: sum
+		sourceColumn: RSD (Recruitment Start Date)
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Ageing Days'
+		dataType: int64
+		formatString: 0
+		lineageTag: 7ad30d82-7f69-479a-be42-850e7911f528
+		summarizeBy: sum
+		sourceColumn: Ageing Days
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Ageing Bucket'
+		dataType: string
+		lineageTag: 6fa9a23b-9e9c-403f-9015-4f21e167e053
+		summarizeBy: none
+		sourceColumn: Ageing Bucket
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Lead Time in Days'
+		dataType: int64
+		formatString: 0
+		lineageTag: a8e10eac-d1bc-4104-af0a-977d4978ac00
+		summarizeBy: sum
+		sourceColumn: Lead Time in Days
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Lead Time Bucket'
+		dataType: string
+		lineageTag: 7f4a913a-14a3-4866-9d43-e43e8e6c24ed
+		summarizeBy: none
+		sourceColumn: Lead Time Bucket
+
+		annotation SummarizationSetBy = Automatic
+
+	column Location
+		dataType: string
+		lineageTag: 8912abb6-09eb-4e08-b3db-c75605240294
+		summarizeBy: none
+		sourceColumn: Location
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Job Role'
+		dataType: string
+		lineageTag: a796b52f-ea73-42d9-a102-406c0fcab1ce
+		summarizeBy: none
+		sourceColumn: Job Role
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Recruitment Reason'
+		dataType: string
+		lineageTag: 83b88ad0-a5c7-4c8b-8b7e-04453ec0cd35
+		summarizeBy: none
+		sourceColumn: Recruitment Reason
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Recruitment Manager'
+		dataType: string
+		lineageTag: 07f8bf90-9498-4602-9b46-658683e24734
+		summarizeBy: none
+		sourceColumn: Recruitment Manager
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sourcing Manager'
+		dataType: string
+		lineageTag: 359f481e-a845-4987-99c3-f8cd60c3e889
+		summarizeBy: none
+		sourceColumn: Sourcing Manager
+
+		annotation SummarizationSetBy = Automatic
+
+	column Sourcer
+		dataType: string
+		lineageTag: dd5c4feb-558e-49f8-9861-8abdaa89909b
+		summarizeBy: none
+		sourceColumn: Sourcer
+
+		annotation SummarizationSetBy = Automatic
+
+	column Recruiter
+		dataType: string
+		lineageTag: e2500a44-5e34-41ac-820f-491e2bdd8e6a
+		summarizeBy: none
+		sourceColumn: Recruiter
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Offer Manager'
+		dataType: string
+		lineageTag: 4a64c74c-9cf6-4ad7-aa86-83366405820e
+		summarizeBy: none
+		sourceColumn: Offer Manager
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Job Category'
+		dataType: string
+		lineageTag: 5f88d30e-4947-4b71-91a0-2ac1f27308ad
+		summarizeBy: none
+		sourceColumn: Job Category
+
+		annotation SummarizationSetBy = Automatic
+
+	column Skillset
+		dataType: string
+		lineageTag: 310e74c6-12a2-46b9-951d-842b00646b2b
+		summarizeBy: none
+		sourceColumn: Skillset
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Primary Skill'
+		dataType: string
+		lineageTag: c8718eae-60be-49dd-83a8-b43508ccc800
+		summarizeBy: none
+		sourceColumn: Primary Skill
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Secondary Skill'
+		dataType: string
+		lineageTag: 4a04b070-360f-427d-99a8-f4003d52ab83
+		summarizeBy: none
+		sourceColumn: Secondary Skill
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Professional Community'
+		dataType: string
+		lineageTag: 475d15c3-510a-4754-a71d-be9c840cc89b
+		summarizeBy: none
+		sourceColumn: Professional Community
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Candidate ID'
+		dataType: string
+		lineageTag: b0c3cf59-da7b-4c50-86aa-96ad86f2cb7c
+		summarizeBy: none
+		sourceColumn: Candidate ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Candidate Name'
+		dataType: string
+		lineageTag: 7dea20f2-4987-42d2-889c-b2d4c69588f4
+		summarizeBy: none
+		sourceColumn: Candidate Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column DOJ
+		dataType: int64
+		formatString: 0
+		lineageTag: 04453b3c-8f4e-4b3b-bf17-1d5e210f7abf
+		summarizeBy: sum
+		sourceColumn: DOJ
+
+		annotation SummarizationSetBy = Automatic
+
+	column MOJ
+		dataType: string
+		lineageTag: a9703e60-cced-41b8-bbdb-3a514a505fd7
+		summarizeBy: none
+		sourceColumn: MOJ
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Offered Date'
+		dataType: int64
+		formatString: 0
+		lineageTag: a56842ce-0a06-489e-bb3c-6783100654c1
+		summarizeBy: sum
+		sourceColumn: Offered Date
+
+		annotation SummarizationSetBy = Automatic
+
+	column Gender
+		dataType: string
+		lineageTag: e85b9ed7-65ac-474c-a930-c4fa2673faa4
+		summarizeBy: none
+		sourceColumn: Gender
+
+		annotation SummarizationSetBy = Automatic
+
+	column Type
+		dataType: string
+		lineageTag: 1667377c-ff27-433e-9f00-01fd52a6bf2f
+		summarizeBy: none
+		sourceColumn: Type
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Myhire Job Req ID'
+		dataType: string
+		lineageTag: 287dd6b6-b866-427c-9813-05e13a26ee77
+		summarizeBy: none
+		sourceColumn: Myhire Job Req ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Posting in'
+		dataType: string
+		lineageTag: 94f0608c-b6cc-4ca2-9904-fa1a18961143
+		summarizeBy: none
+		sourceColumn: Posting in
+
+		annotation SummarizationSetBy = Automatic
+
+	column L2-Date
+		dataType: string
+		lineageTag: b158093c-2b71-4012-9281-176e9d401067
+		summarizeBy: none
+		sourceColumn: L2-Date
+
+		annotation SummarizationSetBy = Automatic
+
+	partition demands = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents("C:\Data\Important\dsf-app-v7\dsf-app-v7\data\demands.csv"),[Delimiter=",", Columns=56, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"Job Req ID", Int64.Type}, {"Position ID/Requisition ID", type text}, {"Demand Status", type text}, {"SBU-02", type text}, {"SBU", type text}, {"GBU", type text}, {"BU", type text}, {"Sub BU", type text}, {"PU", type text}, {"PU code", Int64.Type}, {"Competency", type text}, {"Hiring Manager", type text}, {"Service Line (From Get Talent)", type text}, {"Position Number (Object)", type text}, {"Practice", type text}, {"Job Title", type text}, {"Grade", type text}, {"Unified Grade", type text}, {"External Title", type text}, {"Requisition Status-01", type text}, {"Requisition Status-02", type text}, {"Date Created", Int64.Type}, {"Month Created", type text}, {"Approved Date", Int64.Type}, {"Last Modified", Int64.Type}, {"Estimated Job Start Date", Int64.Type}, {"Job Start Date", Int64.Type}, {"Start Month", type text}, {"RSD (Recruitment Start Date)", Int64.Type}, {"Ageing Days", Int64.Type}, {"Ageing Bucket", type text}, {"Lead Time in Days", Int64.Type}, {"Lead Time Bucket", type text}, {"Location", type text}, {"Job Role", type text}, {"Recruitment Reason", type text}, {"Recruitment Manager", type text}, {"Sourcing Manager", type text}, {"Sourcer", type text}, {"Recruiter", type text}, {"Offer Manager", type text}, {"Job Category", type text}, {"Skillset", type text}, {"Primary Skill", type text}, {"Secondary Skill", type text}, {"Professional Community", type text}, {"Candidate ID", type text}, {"Candidate Name", type text}, {"DOJ", Int64.Type}, {"MOJ", type text}, {"Offered Date", Int64.Type}, {"Gender", type text}, {"Type", type text}, {"Myhire Job Req ID", type text}, {"Posting in", type text}, {"L2-Date", type text}})
+				in
+				    #"Changed Type"
+
+	annotation PBI_ResultType = Table
+
