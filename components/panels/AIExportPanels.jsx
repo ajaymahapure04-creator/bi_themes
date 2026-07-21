@@ -132,7 +132,7 @@ export function OrderPanel({ theme, set, validation, orderStatus, startOrder, th
               Power BI has no runtime theme switching, so use the standard workaround: 1) Build your page with the <b>light</b> theme applied. 2) Duplicate the page, apply the <b>dark</b> theme styling to the copy. 3) Add a button on each page (Insert → Buttons) with a <b>Page navigation</b> action pointing to the other page. End users get a working ☀/☾ toggle.
             </p>
           </div>
-          <Field label="Power BI project (beta)">
+          <Field label="Power BI project">
             <button onClick={downloadPbipProject} disabled={pbipStatus === "building"} className="w-full py-2.5 text-sm font-bold rounded-md"
               style={{ background: pbipStatus === "building" ? chrome.panel : Y, color: pbipStatus === "building" ? chrome.sub : "#17181D" }}>
               {pbipStatus === "building" ? "Building project…" : "⬇ Download Power BI project (.pbip)"}
@@ -140,9 +140,9 @@ export function OrderPanel({ theme, set, validation, orderStatus, startOrder, th
             {pbipStatus === "error" && <p className="mt-1.5" style={{ fontSize: 10.5, color: "#F87171" }}>Couldn't build the project — try again, or fall back to the theme + layout spec above.</p>}
           </Field>
           <div className="p-3 rounded-md mb-3" style={{ background: alpha(Y, 0.08), border: `1px solid ${chrome.line}` }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>BETA — READ BEFORE YOU OPEN IT</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>HOW TO OPEN IT</div>
             <p style={{ fontSize: 12, color: chrome.text, lineHeight: 1.6 }}>
-              Unzip the download, then open the <b>.pbip</b> file in Power BI Desktop (needs the "Power BI Project (.pbip) save option" preview feature on). It builds real tables, relationships and DAX measures — bound cells from real data, unbound cells from a small table of the exact demo numbers shown here. This has <b>not</b> been opened in a real Power BI Desktop to confirm it loads without error — if Desktop reports a problem, that's expected for a first pass; the theme + layout spec above always work as a fallback.
+              Unzip the download, then open the <b>.pbip</b> file in Power BI Desktop (needs the "Power BI Project (.pbip) save option" preview feature on). It builds the full report: a themed page with <b>every visual laid out and positioned</b>, plus real tables, relationships and DAX measures behind them — bound cells from your imported data, unbound cells from a small table of the exact demo numbers shown here. If a visual ever looks off, you can adjust it in Desktop like any normal report; the theme + layout spec above remain available as a manual fallback.
             </p>
           </div>
           <pre className="p-3 rounded-md overflow-auto" style={{ ...fonts.mono, fontSize: 10, color: chrome.sub, background: "#121318", border: `1px solid ${chrome.line}`, maxHeight: 220 }}>{themeJson}</pre>
