@@ -5,7 +5,7 @@ import { DOMAINS, PRESETS, VISUALS, DEFAULT_THEME, DEFAULT_LAYOUT, INDUSTRY_TO_D
 import { extractPaletteFromImage, isDarkColor, isUsableDataColor, buildBrandDataPalette } from "../lib/utils";
 import { buildPowerBITheme, buildLayoutSpec, deriveTwin } from "../lib/theme-builder";
 import { normalizeCells } from "../lib/layout-cells";
-import { EMPTY_DATASET, loadDataset } from "../lib/dataset";
+import { EMPTY_DATASET, loadDataset, saveDataset } from "../lib/dataset";
 import { sanitizeAiBinding } from "../lib/binding-engine";
 import { exportNodeAsPng, exportNodeAsPdf } from "../lib/export-image";
 import { useReportVisuals, buildVisualPayload, unwrapResolved } from "../lib/useReportVisuals";
@@ -189,6 +189,17 @@ export default function Studio() {
     } catch (e) { /* storage full (large logo) — skip silently */ }
   }, [domainKey, theme, layout, logo, brandName, hydrated]);
 
+  // Dataset lives in its own localStorage key (see lib/dataset.js) so a large
+  // import can't jeopardize the theme/layout autosave above. The /data page
+  // already writes back on every change; this panel's own Data step (DataPanel)
+  // edits the same `dataset` state and needs the same autosave, or tables
+  // added here vanish on reload -- and any cell bound to them silently falls
+  // back to demo data since resolveCellData treats a missing table as unbound.
+  useEffect(() => {
+    if (!hydrated) return;
+    saveDataset(dataset);
+  }, [dataset, hydrated]);
+
   // Track which accordion sections have been opened at least once.
   useEffect(() => {
     if (!tab) return;
@@ -237,7 +248,24 @@ export default function Studio() {
   const pickDomain = (k) => setDomainKey(k);
 
   const pickPreset = (k) => {
-    setLayout((L) => ({ ...L, preset: k, cells: normalizeCells(PRESETS[k].defaults) }));
+    setLayout((L) => {
+      // Carry real bindings over into the new grid by visual type -- a bound
+      // column chart should stay bound to the same data after switching
+      // layouts, regardless of which slot it lands in. Pool bindings by type
+      // and hand them out in order; slots whose type has no leftover binding
+      // (or a type the new preset doesn't have) fall back to demo data, same
+      // as a fresh preset pick always has.
+      const pool = {};
+      (L.cells || []).forEach((c) => {
+        if (c.binding == null) return;
+        (pool[c.type] ||= []).push(c.binding);
+      });
+      const cells = normalizeCells(PRESETS[k].defaults).map((cell) => {
+        const bindings = pool[cell.type];
+        return bindings?.length ? { ...cell, binding: bindings.shift() } : cell;
+      });
+      return { ...L, preset: k, cells };
+    });
     setSelectedCell(null);
   };
 
