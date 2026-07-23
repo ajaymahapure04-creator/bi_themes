@@ -243,9 +243,33 @@ export default function Studio() {
 
   const clearBrand = () => { setBrandName(null); setBrandNote(""); };
 
-  // Swaps only the report's content template (KPIs/charts/slicers) — never
-  // touches theme colors, regardless of whether a company/brand is active.
-  const pickDomain = (k) => setDomainKey(k);
+  // Swaps the report's content template (KPIs/charts/slicers) -- colors and
+  // layout stay untouched for every domain EXCEPT one that defines its own
+  // recommendedPreset (currently just Marketing / Web Analytics): that hint
+  // means the domain was built to reproduce one specific reference dashboard,
+  // so picking it also applies its matching layout preset and color palette.
+  // One-step Undo since this can overwrite whatever layout/colors were
+  // already in place.
+  const pickDomain = (k) => {
+    if (k === domainKey) return;
+    const rec = DOMAINS[k].recommendedPreset;
+    if (!rec) { setDomainKey(k); return; }
+    const prevDomainKey = domainKey, prevTheme = theme, prevLayout = layout;
+    setDomainKey(k);
+    setLayout((L) => ({
+      ...L,
+      preset: rec,
+      cells: normalizeCells(PRESETS[rec].defaults),
+      kpiStripBindings: Array.from({ length: DOMAINS[k].kpis.length }, () => null),
+    }));
+    setTheme((t) => ({ ...t, dataColors: [...DOMAINS[k].palette], tableAccent: DOMAINS[k].palette[0] }));
+    setSelectedCell(null);
+    showUndo(`Applied ${DOMAINS[k].label}'s recommended layout and colors.`, () => {
+      setDomainKey(prevDomainKey);
+      setTheme(prevTheme);
+      setLayout(prevLayout);
+    });
+  };
 
   const pickPreset = (k) => {
     setLayout((L) => {
@@ -503,7 +527,7 @@ export default function Studio() {
             id: i,
             type: cell.type,
             title,
-            data: buildVisualPayload(cell.type, unwrapResolved(cell.type, resolved)),
+            data: buildVisualPayload(cell.type, unwrapResolved(cell.type, resolved, i)),
           })),
         }),
       });
@@ -675,7 +699,7 @@ export default function Studio() {
             </AccordionSection>
 
             <AccordionSection id="layout" step={3} label="Layout" subtitle="Grid, slicers, page size & cell bindings" tab={tab} setTab={setTab} visited={visitedTabs.has("layout")}>
-              <LayoutPanel layout={layout} setLayout={setLayout} selectedCell={selectedCell} setSelectedCell={setSelectedCell} pickPreset={pickPreset} setCellVisual={setCellVisual} dataset={dataset} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} addFilter={addFilter} removeFilter={removeFilter} />
+              <LayoutPanel layout={layout} setLayout={setLayout} pickPreset={pickPreset} />
             </AccordionSection>
 
             <AccordionSection id="order" step={4} label="Validate & Order" subtitle="Check the live preview, then order the package" tab={tab} setTab={setTab} visited={visitedTabs.has("order")}>

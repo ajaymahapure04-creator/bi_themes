@@ -25,7 +25,7 @@ How data becomes a model:
 
 ## Features
 
-- **5 domain templates** — Workforce/RMG, Automotive/OTA, Finance, Sales, Supply Chain — each with realistic dummy data, slicer fields, and a starter palette
+- **6 domain templates** — Workforce/RMG, Automotive/OTA, Finance, Sales, Supply Chain, Marketing/Web Analytics — each with realistic dummy data, slicer fields, and a starter palette
 - **Layout builder** — 4 grid presets (2×2, 2×4, 3×3, KPI strip + 2×2), tap any cell to assign one of 8 visual types (KPI card, column, bar, line, area, donut, table, text box), slicer position toggle (top / left / none)
 - **Brand step** — logo upload with automatic brand-color extraction, 8 editable data colors, text/semantic colors, report font, size sliders
 - **AI Assist** — describe the report in plain English; Claude designs the full theme *and* layout with a one-line rationale

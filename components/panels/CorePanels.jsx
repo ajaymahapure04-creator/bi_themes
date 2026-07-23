@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { DOMAINS, PRESETS, VISUALS, REPORT_FONTS, PAGE_SIZES, INDUSTRY_TO_DOMAIN } from "../../lib/data";
+import { DOMAINS, PRESETS, REPORT_FONTS, PAGE_SIZES, INDUSTRY_TO_DOMAIN } from "../../lib/data";
 import { BRANDS } from "../../lib/brands";
 import { alpha } from "../../lib/utils";
 import { Y, chrome, fonts } from "../../lib/chrome";
@@ -22,6 +22,7 @@ function DomainPicker({ domainKey, pickDomain }) {
       </div>
       <p className="mt-1.5" style={{ fontSize: 10.5, color: chrome.sub, lineHeight: 1.5 }}>
         Switches which dummy KPIs/charts/slicers show — colors from your picked company (if any) stay as they are.
+        {Object.values(DOMAINS).some((d) => d.recommendedPreset) && " Marketing / Web Analytics is the one exception — it's built to match one specific reference dashboard, so picking it also applies its own layout and colors (Undo reverts it)."}
       </p>
     </Field>
   );
@@ -296,7 +297,7 @@ function BindingFields({ type, dataset, binding, onChange }) {
     );
   }
 
-  if (type === "line" || type === "area") {
+  if (type === "line" || type === "area" || type === "columnGrouped") {
     const patchSeries = (idx, p) => {
       const series = [...binding.series];
       series[idx] = { ...series[idx], ...p };
@@ -379,7 +380,7 @@ export function CellBindingEditor({ cell, dataset, onSetBinding }) {
     if (!firstFact) return;
     if (cell.type === "kpi") onSetBinding({ label: "", metric: { table: firstFact.id, column: "", agg: "sum" } });
     else if (["column", "bar", "donut"].includes(cell.type)) onSetBinding({ metric: { table: firstFact.id, column: "", agg: "sum" }, groupBy: null });
-    else if (["line", "area"].includes(cell.type)) onSetBinding({
+    else if (["line", "area", "columnGrouped"].includes(cell.type)) onSetBinding({
       groupBy: null,
       series: [{ label: "Series 1", metric: { table: firstFact.id, column: "", agg: "sum" } }, { label: "Series 2", metric: { table: firstFact.id, column: "", agg: "sum" } }],
     });
@@ -400,47 +401,6 @@ export function CellBindingEditor({ cell, dataset, onSetBinding }) {
       )}
       {useData && cell.binding && <BindingFields type={cell.type} dataset={dataset} binding={cell.binding} onChange={onSetBinding} />}
     </div>
-  );
-}
-
-// Mini binding editor for the 4 fixed KPI-strip cards (kpicharts preset only).
-// Each card independently toggles demo data vs. a real kpi binding, reusing
-// the same BindingFields form the grid cells use.
-function KpiStripBindingEditor({ dataset, kpiStripBindings, setKpiStripBinding }) {
-  const factTables = Object.values(dataset.tables).filter((t) => t.role === "fact");
-  const bindings = kpiStripBindings || [null, null, null, null];
-
-  const toggle = (i, on) => {
-    if (!on) { setKpiStripBinding(i, null); return; }
-    const firstFact = factTables[0];
-    if (!firstFact) return;
-    setKpiStripBinding(i, { label: "", metric: { table: firstFact.id, column: "", agg: "sum" } });
-  };
-
-  return (
-    <Field label="KPI strip data sources">
-      {!factTables.length && (
-        <p className="mb-2" style={{ fontSize: 10.5, color: chrome.sub }}>Upload a fact table on the <a href="/data" style={{ textDecoration: "underline" }}>Data Model</a> page to bind these cards.</p>
-      )}
-      <div className="flex flex-col gap-2">
-        {[0, 1, 2, 3].map((i) => {
-          const binding = bindings[i];
-          const useData = binding != null;
-          return (
-            <div key={i} className="p-2.5 rounded-md" style={{ background: chrome.panel, border: `1px solid ${chrome.line}` }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: chrome.sub }}>Card {i + 1}</span>
-                <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
-                  <button onClick={() => toggle(i, false)} className="px-2 py-1 text-[10.5px] font-semibold" style={{ background: !useData ? Y : "transparent", color: !useData ? "#17181D" : chrome.sub }}>Demo</button>
-                  <button onClick={() => toggle(i, true)} disabled={!factTables.length} className="px-2 py-1 text-[10.5px] font-semibold" style={{ background: useData ? Y : "transparent", color: useData ? "#17181D" : chrome.sub }}>My data</button>
-                </div>
-              </div>
-              {useData && binding && <BindingFields type="kpi" dataset={dataset} binding={binding} onChange={(b) => setKpiStripBinding(i, b)} />}
-            </div>
-          );
-        })}
-      </div>
-    </Field>
   );
 }
 
@@ -490,8 +450,7 @@ export function FiltersSection({ dataset, filters, addFilter, removeFilter }) {
   );
 }
 
-export function LayoutPanel({ layout, setLayout, selectedCell, setSelectedCell, pickPreset, setCellVisual, dataset, setCellBinding, setKpiStripBinding, addFilter, removeFilter }) {
-  const p = PRESETS[layout.preset];
+export function LayoutPanel({ layout, setLayout, pickPreset }) {
   return (
     <div>
       <Field label="Grid preset">
@@ -511,10 +470,6 @@ export function LayoutPanel({ layout, setLayout, selectedCell, setSelectedCell, 
           ))}
         </div>
       </Field>
-
-      {p.strip && dataset && (
-        <KpiStripBindingEditor dataset={dataset} kpiStripBindings={layout.kpiStripBindings} setKpiStripBinding={setKpiStripBinding} />
-      )}
 
       <Field label="Page size (Power BI canvas)">
         <div className="flex gap-1.5">
@@ -555,37 +510,7 @@ export function LayoutPanel({ layout, setLayout, selectedCell, setSelectedCell, 
         </div>
       </Field>
 
-      <FiltersSection dataset={dataset} filters={layout.filters || []} addFilter={addFilter} removeFilter={removeFilter} />
-
-      <Field label={selectedCell === null ? "Cells — tap one below or in the preview" : `Editing cell ${selectedCell + 1} — pick its visual`}>
-        <div className="grid gap-1 mb-3" style={{ gridTemplateColumns: `repeat(${p.cols}, 1fr)` }}>
-          {layout.cells.map((cell, i) => (
-            <button key={i} onClick={() => setSelectedCell(i)} className="rounded-md flex flex-col items-center justify-center py-2"
-              style={{ background: selectedCell === i ? alpha(Y, 0.14) : chrome.panel, border: `1.5px solid ${selectedCell === i ? Y : chrome.line}` }}>
-              <span style={{ fontSize: 15, color: selectedCell === i ? Y : chrome.text }}>{VISUALS[cell.type].icon}</span>
-              <span style={{ fontSize: 8.5, color: chrome.sub, marginTop: 1 }}>{i + 1}</span>
-            </button>
-          ))}
-        </div>
-        {selectedCell !== null && (
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(VISUALS).map(([k, v]) => (
-              <button key={k} onClick={() => setCellVisual(selectedCell, k)} className="px-2.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
-                style={{
-                  background: layout.cells[selectedCell].type === k ? Y : chrome.panel,
-                  color: layout.cells[selectedCell].type === k ? "#17181D" : chrome.text,
-                  border: `1px solid ${layout.cells[selectedCell].type === k ? Y : chrome.line}`,
-                }}>
-                <span>{v.icon}</span>{v.label}
-              </button>
-            ))}
-          </div>
-        )}
-        {selectedCell !== null && dataset && (
-          <CellBindingEditor cell={layout.cells[selectedCell]} dataset={dataset} onSetBinding={(b) => setCellBinding(selectedCell, b)} />
-        )}
-      </Field>
-      <p style={{ fontSize: 11, color: chrome.sub, lineHeight: 1.5 }}>Tip: any cell in the live preview is tappable too — it jumps straight here.</p>
+      <p style={{ fontSize: 11, color: chrome.sub, lineHeight: 1.5 }}>Tap any cell, KPI card, or the Filters bar in the live preview to edit its data source.</p>
     </div>
   );
 }

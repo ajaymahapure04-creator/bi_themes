@@ -74,7 +74,13 @@ const ReportPreview = forwardRef(function ReportPreview({ domainKey, theme, layo
     borderRadius: 10,
     padding: 14,
     fontFamily: `'${t.fontFamily}', 'Segoe UI', sans-serif`,
-    ...(locked ? { aspectRatio: `${page.w} / ${page.h}`, display: "flex", flexDirection: "column", overflow: "hidden" } : {}),
+    // maxWidth (not just aspectRatio) is what actually makes 4:3 look like a
+    // narrower page instead of just a taller one -- without it, this div
+    // always stretches to fill the panel and only its height reacts to the
+    // page's ratio, so 16:9 vs 4:3 never visibly differ in width. Centered
+    // since a narrower locked canvas otherwise sits flush left, which reads
+    // as a layout bug rather than "this is a smaller page."
+    ...(locked ? { aspectRatio: `${page.w} / ${page.h}`, maxWidth: page.w, margin: "0 auto", display: "flex", flexDirection: "column", overflow: "hidden" } : {}),
   };
 
   return (
@@ -107,7 +113,11 @@ const ReportPreview = forwardRef(function ReportPreview({ domainKey, theme, layo
         <div className="flex-1 min-w-0" style={locked ? { display: "flex", flexDirection: "column", minHeight: 0 } : {}}>
           {/* fixed KPI strip for the kpicharts preset */}
           {p.strip && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-2.5" style={locked ? { flexShrink: 0 } : {}}>
+            // One row, every card -- not capped at 4 columns. A domain with
+            // more KPIs than the original 4-card strip (e.g. Marketing / Web
+            // Analytics' 7) needs all of them side by side in a single row,
+            // matching the reference dashboard, not wrapped into extra rows.
+            <div className="grid gap-2.5 mb-2.5" style={{ gridTemplateColumns: `repeat(${resolvedKpiStrip.length}, minmax(0,1fr))`, ...(locked ? { flexShrink: 0 } : {}) }}>
               {resolvedKpiStrip.map((k, i) => {
                 const isEditingThis = editing?.isKpiStrip && editing.index === i;
                 return (

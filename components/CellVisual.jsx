@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { alpha, shade } from "../lib/utils";
-import { ColumnChart, HBarChart, LineChart, Donut } from "./charts";
+import { ColumnChart, HBarChart, LineChart, Donut, GroupedColumnChart } from "./charts";
 import FilterConfigPopover from "./FilterConfigPopover";
 
 // Distinct values for one filter's column, computed fresh from the dataset
@@ -69,26 +69,49 @@ export function CellVisual({ type, d, t, idx, headerBg }) {
       </div>
     );
   }
+  if (type === "columnGrouped") {
+    // Falls back to `line`'s single dual-series set for any domain that
+    // hasn't defined `groupedBars` -- so this visual type never crashes
+    // regardless of which domain is active when it's picked.
+    const gbList = d.groupedBars?.length ? d.groupedBars : [d.line];
+    const gb = gbList[idx % gbList.length];
+    const c2 = t.dataColors[(idx + 3) % t.dataColors.length];
+    return (
+      <div className="h-full flex flex-col">
+        <div style={vTitle}>{gb.title}</div>
+        <div className="flex-1 min-h-0"><GroupedColumnChart data={gb} c1={color} c2={c2} sub={t.secondaryForeground} fg={t.foreground} labelSize={t.labelSize} /></div>
+        <div className="flex gap-3 mt-1" style={{ flexShrink: 0 }}>
+          <span className="flex items-center gap-1" style={{ fontSize: t.labelSize, color: t.secondaryForeground }}><span style={{ width: 10, height: 10, background: color, borderRadius: 2 }} /> {gb.s1Label || "Series 1"}</span>
+          <span className="flex items-center gap-1" style={{ fontSize: t.labelSize, color: t.secondaryForeground }}><span style={{ width: 10, height: 10, background: c2, borderRadius: 2 }} /> {gb.s2Label || "Series 2"}</span>
+        </div>
+      </div>
+    );
+  }
   if (type === "donut") return (
     <div className="h-full flex flex-col">
       <div style={vTitle}>{d.donut.title}</div>
       <div className="flex-1 min-h-0"><Donut segs={d.donut.segs} colors={t.dataColors} fg={t.foreground} sub={t.secondaryForeground} labelSize={t.labelSize} /></div>
     </div>
   );
-  if (type === "table") return (
+  if (type === "table") {
+    // Falls back to the single `table` field for any domain that hasn't
+    // defined `tables` -- so a preset with 2+ table cells never crashes.
+    const tblList = d.tables?.length ? d.tables : [d.table];
+    const tbl = tblList[idx % tblList.length];
+    return (
     <div className="h-full flex flex-col" style={{ margin: "-10px -12px", height: "calc(100% + 20px)" }}>
-      <div style={{ ...vTitle, padding: "10px 12px 4px" }}>{d.table.title}</div>
+      <div style={{ ...vTitle, padding: "10px 12px 4px" }}>{tbl.title}</div>
       <div className="flex-1 min-h-0" style={{ overflowY: "auto" }}>
         <table className="w-full" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: alpha(t.tableAccent, 0.12) }}>
-              {d.table.cols.map((c) => (
+              {tbl.cols.map((c) => (
                 <th key={c} style={{ fontSize: t.labelSize, color: t.foreground, textAlign: "left", padding: "6px 12px", fontWeight: 700, borderBottom: `2px solid ${t.tableAccent}` }}>{c}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {d.table.rows.map((r, ri) => (
+            {tbl.rows.map((r, ri) => (
               <tr key={ri} style={{ background: ri % 2 ? alpha(t.tableAccent, 0.04) : "transparent" }}>
                 {r.map((cell, ci) => (
                   <td key={ci} style={{ fontSize: t.labelSize + 1, color: ci === 0 ? t.foreground : t.secondaryForeground, padding: "5.5px 12px", fontWeight: ci === 0 ? 600 : 400 }}>{cell}</td>
@@ -99,7 +122,8 @@ export function CellVisual({ type, d, t, idx, headerBg }) {
         </table>
       </div>
     </div>
-  );
+    );
+  }
   if (type === "text") return (
     <div className="h-full flex flex-col">
       <div style={vTitle}>{d.text.title}</div>

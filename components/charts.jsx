@@ -31,6 +31,39 @@ export function ColumnChart({ data, color, sub, fg, labelSize }) {
   );
 }
 
+// Two bars per category, side by side -- matches Power BI's clusteredColumnChart
+// (the real visual type behind e.g. a "this week vs last week" comparison),
+// distinct from LineChart's dual-series trend line treatment.
+export function GroupedColumnChart({ data, c1, c2, sub, fg, labelSize }) {
+  const all = [...data.s1, ...data.s2];
+  const max = (all.length ? Math.max(...all) : 0) * 1.15 || 1;
+  const n = data.cats.length || 1;
+  const bw = 100 / n;
+  const barW = bw * 0.32;
+  const gap = bw * 0.06;
+  return (
+    <svg viewBox="0 0 100 58" preserveAspectRatio="xMidYMid meet" className="w-full h-full block">
+      {[0.25, 0.5, 0.75, 1].map((g) => (
+        <line key={g} x1="0" x2="100" y1={50 - g * 48} y2={50 - g * 48} stroke={sub} strokeWidth="0.25" opacity="0.35" />
+      ))}
+      {data.cats.map((c, i) => {
+        const h1 = ((data.s1[i] || 0) / max) * 48;
+        const h2 = ((data.s2[i] || 0) / max) * 48;
+        const x0 = i * bw + (bw - (barW * 2 + gap)) / 2;
+        return (
+          <g key={c}>
+            <rect x={x0} y={50 - h1} width={barW} height={h1} rx="0.8" fill={c1} />
+            <rect x={x0 + barW + gap} y={50 - h2} width={barW} height={h2} rx="0.8" fill={c2} />
+          </g>
+        );
+      })}
+      {data.cats.map((c, i) => (
+        <text key={c} x={i * bw + bw / 2} y={56} textAnchor="middle" fontSize={labelSize * 0.36} fill={sub}>{c}</text>
+      ))}
+    </svg>
+  );
+}
+
 export function HBarChart({ data, color, sub, fg, labelSize }) {
   const max = (data.vals.length ? Math.max(...data.vals) : 0) * 1.1 || 1;
   const rh = 56 / (data.vals.length || 1);
