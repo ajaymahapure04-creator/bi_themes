@@ -1,4 +1,4 @@
-# ◪ Accelerator Dashboard
+# ◪ BI Theme Studio
 
 A guided, client-facing path to a themed Power BI report: **Brand & Identity → Data → Layout → Validate & Order**. Pick an industry and a company, decide whether the report runs on starter demo data or the client's own import, lay out the grid cell by cell, check it in a live report preview, then order a ready-to-assemble **Power BI theme.json + layout build sheet** package. An optional AI Assist drawer can design the theme and layout from a plain-English description at any point in the flow.
 

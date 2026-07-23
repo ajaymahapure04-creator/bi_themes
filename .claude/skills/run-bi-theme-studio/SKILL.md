@@ -1,9 +1,9 @@
 ---
 name: run-bi-theme-studio
-description: Build, run, and drive the Accelerator Dashboard (bi-theme-studio) Next.js web app. Use when asked to start the app, run the dev server, take a screenshot of its UI, or interact with the running app (industry/company picker, layout builder, insights view).
+description: Build, run, and drive the BI Theme Studio (bi-theme-studio) Next.js web app. Use when asked to start the app, run the dev server, take a screenshot of its UI, or interact with the running app (industry/company picker, layout builder, insights view).
 ---
 
-Accelerator Dashboard is a Next.js 15 / React 19 web app (no separate
+BI Theme Studio is a Next.js 15 / React 19 web app (no separate
 backend). Start the dev server, then drive it with the Playwright REPL
 at `.claude/skills/run-bi-theme-studio/driver.mjs` — `chromium-cli` is
 not installed in this environment, so this driver stands in for it
@@ -55,7 +55,7 @@ and is the primary path here):
 ```bash
 node .claude/skills/run-bi-theme-studio/driver.mjs <<'EOF'
 nav http://localhost:3100
-wait-for text=Accelerator Dashboard
+wait-for text=BI Theme Studio
 screenshot 01-initial
 click text=Automotive / OTA
 wait-for text=OTA Success Rate
@@ -76,7 +76,7 @@ tmux new-session -d -s app -x 200 -y 50
 tmux send-keys -t app 'node .claude/skills/run-bi-theme-studio/driver.mjs' Enter
 timeout 20 bash -c 'until tmux capture-pane -t app -p | grep -q "driver>"; do sleep 0.2; done'
 tmux send-keys -t app 'nav http://localhost:3100' Enter
-tmux send-keys -t app 'wait-for text=Accelerator Dashboard' Enter
+tmux send-keys -t app 'wait-for text=BI Theme Studio' Enter
 tmux send-keys -t app 'screenshot landing' Enter
 tmux capture-pane -t app -p
 ```

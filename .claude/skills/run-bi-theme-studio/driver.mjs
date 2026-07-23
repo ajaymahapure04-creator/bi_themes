@@ -1,4 +1,4 @@
-// REPL driver for the Accelerator Dashboard (Next.js web app).
+// REPL driver for the BI Theme Studio (Next.js web app).
 // Mirrors chromium-cli's command vocabulary so it's a drop-in stand-in
 // when chromium-cli isn't installed in this environment. Run under
 // tmux: send-keys one command per line, capture-pane to read output.

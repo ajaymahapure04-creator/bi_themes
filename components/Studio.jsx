@@ -660,7 +660,7 @@ export default function Studio() {
         <div className="flex items-center gap-2.5">
           <div style={{ width: 30, height: 30, borderRadius: 8, background: Y, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#17181D", ...fonts.disp, fontSize: 15 }}>◪</div>
           <div>
-            <div style={{ ...fonts.disp, fontWeight: 700, fontSize: 16, color: chrome.text, lineHeight: 1.1 }}>Accelerator Dashboard</div>
+            <div style={{ ...fonts.disp, fontWeight: 700, fontSize: 16, color: chrome.text, lineHeight: 1.1 }}>BI Theme Studio</div>
             <div style={{ fontSize: 10.5, color: chrome.sub }}>Brand → Data → Layout → Validate → Order — a guided path to a client-ready Power BI report</div>
           </div>
         </div>
