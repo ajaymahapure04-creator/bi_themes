@@ -654,9 +654,9 @@ export default function Studio() {
   };
 
   return (
-    <div className="min-h-screen w-full" style={{ background: chrome.bg, ...fonts.ui }}>
+    <div className="min-h-screen lg:h-screen w-full lg:flex lg:flex-col" style={{ background: chrome.bg, ...fonts.ui }}>
       {/* top bar */}
-      <div className="flex items-center justify-between px-4 py-3 flex-wrap gap-2" style={{ borderBottom: `1px solid ${chrome.line}` }}>
+      <div className="flex items-center justify-between px-4 py-3 flex-wrap gap-2 lg:flex-shrink-0" style={{ borderBottom: `1px solid ${chrome.line}` }}>
         <div className="flex items-center gap-2.5">
           <div style={{ width: 30, height: 30, borderRadius: 8, background: Y, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#17181D", ...fonts.disp, fontSize: 15 }}>◪</div>
           <div>
@@ -678,10 +678,15 @@ export default function Studio() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row">
-        {/* control panel */}
+      <div className="flex flex-col lg:flex-row lg:flex-1 lg:min-h-0">
+        {/* control panel -- lg:overflow-y-auto gives this its own scrollbar
+            independent of the preview column, so a long sidebar (e.g. the
+            full industry/company list) never drags the live preview out of
+            view; it stays put in its own fixed-height column. Mobile keeps
+            the original single-column, whole-page scroll since a split-pane
+            layout doesn't make sense on a narrow screen. */}
         {panelOpen ? (
-          <div className="w-full lg:w-[380px] flex-shrink-0 p-4 relative" style={{ borderRight: `1px solid ${chrome.line}` }}>
+          <div className="w-full lg:w-[380px] flex-shrink-0 p-4 relative lg:overflow-y-auto" style={{ borderRight: `1px solid ${chrome.line}` }}>
             <button onClick={() => setPanelOpen(false)} title="Hide panel" aria-label="Hide panel"
               className="hidden lg:flex items-center justify-center absolute top-4 -right-3 w-6 h-6 rounded-full z-10"
               style={{ background: chrome.panel, color: chrome.sub, border: `1px solid ${chrome.line}`, fontSize: 12 }}>‹</button>
@@ -712,8 +717,9 @@ export default function Studio() {
             style={{ background: chrome.panel, borderRight: `1px solid ${chrome.line}`, color: chrome.sub, fontSize: 12 }}>›</button>
         )}
 
-        {/* live preview */}
-        <div className="flex-1 p-4 min-w-0">
+        {/* live preview -- its own independent scroll region too, so it never
+            shares a scroll position with the sidebar. */}
+        <div className="flex-1 p-4 min-w-0 lg:overflow-y-auto">
           {/* Top-level mode: read-only Insights (Summary <-> KPI Deep Dive) vs.
               the actual editable Report canvas -- Layout-tab cell picking/
               binding and every export still work exactly as before, just
