@@ -146,6 +146,9 @@ function IndustryPicker({ brandName, brandNote, pickBrand, clearBrand }) {
       <p className="mt-1.5" style={{ fontSize: 10.5, color: chrome.sub, lineHeight: 1.5 }}>
         540-brand reference list, 26 industries. Picking a company sets both the report's colors and its content — Automotive, Finance and Logistics companies get matching dummy KPIs/charts; every other industry uses a general-purpose business dashboard.
       </p>
+      <p className="mt-1.5" style={{ fontSize: 10.5, color: chrome.sub, lineHeight: 1.5 }}>
+        Reference palettes for design purposes. Not affiliated with or endorsed by the companies listed.
+      </p>
     </Field>
   );
 }

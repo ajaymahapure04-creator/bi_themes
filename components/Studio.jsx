@@ -115,6 +115,8 @@ export default function Studio() {
   const [copied, setCopied] = useState(false);
   const [previewMode, setPreviewMode] = useState("light"); // which half of the theme pair the preview shows
   const [previewZoom, setPreviewZoom] = useState(100); // ephemeral, like previewMode -- not persisted
+  const [settingsOpen, setSettingsOpen] = useState(false); // display-settings dropdown (theme/export/zoom) off the toolbar's gear icon
+  const settingsRef = useRef(null);
   const [hydrated, setHydrated] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [undo, setUndo] = useState(null); // { message, onUndo } | null -- single-step, no persistent history
@@ -199,6 +201,20 @@ export default function Studio() {
     if (!hydrated) return;
     saveDataset(dataset);
   }, [dataset, hydrated]);
+
+  // Settings dropdown (theme/export/zoom, off the toolbar's gear icon) closes
+  // on an outside click or Escape, same convention as the cell-edit popovers.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onClick = (e) => { if (settingsRef.current && !settingsRef.current.contains(e.target)) setSettingsOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setSettingsOpen(false); };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [settingsOpen]);
 
   // Track which accordion sections have been opened at least once.
   useEffect(() => {
@@ -724,58 +740,80 @@ export default function Studio() {
               the actual editable Report canvas -- Layout-tab cell picking/
               binding and every export still work exactly as before, just
               reached via "Edit Report" instead of always being "page 2". */}
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
+          {/* Single row: primary action, view-mode toggle, page nav, then the
+              settings gear pinned to the far right corner holding everything
+              that isn't core navigation (theme/export/zoom). Replaces the old
+              two-row toolbar, which crammed 4 separate control clusters onto
+              one side while the other side carried a page-name label that
+              only repeated the "Page 1 of 2 — Summary" text sitting right
+              next to it. */}
+          <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+            {viewMode === "insights" && (
+              <button onClick={askInsights} disabled={insightsLoading}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md flex-shrink-0" style={{ background: chrome.panel, color: insightsLoading ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}` }}>
+                {insightsLoading ? "Generating…" : "⟲ Regenerate insights"}
+              </button>
+            )}
+
+            <div className="flex rounded-md overflow-hidden flex-shrink-0" style={{ border: `1px solid ${chrome.line}` }}>
               <button onClick={() => setViewMode("insights")} className="px-3 py-1.5 text-xs font-bold"
                 style={{ background: viewMode === "insights" ? Y : chrome.panel, color: viewMode === "insights" ? "#17181D" : chrome.sub }}>📊 Insights</button>
               <button onClick={() => setViewMode("edit")} className="px-3 py-1.5 text-xs font-bold"
                 style={{ background: viewMode === "edit" ? Y : chrome.panel, color: viewMode === "edit" ? "#17181D" : chrome.sub }}>✎ Edit Report</button>
             </div>
+
             {viewMode === "insights" && (
-              <>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <button onClick={() => setPreviewPage(0)} disabled={previewPage === 0} className="px-3 py-1.5 text-xs font-semibold rounded-md"
                   style={{ background: chrome.panel, color: previewPage === 0 ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}`, cursor: previewPage === 0 ? "default" : "pointer" }}>‹ Prev</button>
-                <span style={{ fontSize: 11.5, color: chrome.sub }}>{previewPage === 0 ? "Page 1 of 2 — Summary" : "Page 2 of 2 — KPI Deep Dive"}</span>
+                <span style={{ fontSize: 11.5, color: chrome.sub, whiteSpace: "nowrap" }}>{previewPage === 0 ? "Page 1 of 2 — Summary" : "Page 2 of 2 — KPI Deep Dive"}</span>
                 <button onClick={() => setPreviewPage(1)} disabled={previewPage === 1} className="px-3 py-1.5 text-xs font-semibold rounded-md"
                   style={{ background: chrome.panel, color: previewPage === 1 ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}`, cursor: previewPage === 1 ? "default" : "pointer" }}>Next ›</button>
-              </>
+              </div>
             )}
-          </div>
 
-          <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
-            <div style={{ ...fonts.disp, fontSize: 13, fontWeight: 600, color: chrome.text }}>
-              {viewMode === "edit" ? "Live report preview" : previewPage === 0 ? "Summary" : "KPI Deep Dive"}
-            </div>
-            <div className="flex items-center gap-2">
-              {viewMode === "insights" ? (
-                <button onClick={askInsights} disabled={insightsLoading}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-md" style={{ background: chrome.panel, color: insightsLoading ? chrome.line : chrome.sub, border: `1px solid ${chrome.line}` }}>
-                  {insightsLoading ? "Generating…" : "⟲ Regenerate insights"}
-                </button>
-              ) : (
-                <span style={{ fontSize: 11, color: chrome.sub }}>Tap any cell to edit</span>
+            <div className="flex-1" style={{ minWidth: 8 }} />
+
+            <div className="relative flex-shrink-0" ref={settingsRef}>
+              <button onClick={() => setSettingsOpen((o) => !o)} title="Display settings" aria-label="Display settings" aria-expanded={settingsOpen}
+                className="flex items-center justify-center rounded-md"
+                style={{ width: 30, height: 30, fontSize: 15, background: settingsOpen ? Y : chrome.panel, color: settingsOpen ? "#17181D" : chrome.sub, border: `1px solid ${settingsOpen ? Y : chrome.line}` }}>
+                ⚙
+              </button>
+              {settingsOpen && (
+                <div className="absolute right-0 flex flex-col gap-3 rounded-md" style={{ top: "calc(100% + 8px)", width: 220, zIndex: 20, background: chrome.panel, border: `1px solid ${chrome.line}`, boxShadow: "0 12px 28px rgba(0,0,0,0.45)", padding: 12 }}>
+                  <div className="flex flex-col gap-1.5">
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: chrome.sub }}>Theme</span>
+                    <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
+                      {[["light", "☀ Light"], ["dark", "☾ Dark"]].map(([m, l]) => (
+                        <button key={m} onClick={() => setPreviewMode(m)} className="flex-1 py-1.5 text-xs font-bold"
+                          style={{ background: previewMode === m ? Y : chrome.panel, color: previewMode === m ? "#17181D" : chrome.sub }}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: chrome.sub }}>Export</span>
+                    <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
+                      <button onClick={exportPreviewPng} disabled={!!exporting} title="Download this page as a PNG image"
+                        className="flex-1 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, cursor: exporting ? "default" : "pointer" }}>
+                        {exporting === "png" ? "Exporting…" : "⤓ PNG"}
+                      </button>
+                      <button onClick={exportPreviewPdf} disabled={!!exporting} title="Download this page as a PDF"
+                        className="flex-1 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, borderLeft: `1px solid ${chrome.line}`, cursor: exporting ? "default" : "pointer" }}>
+                        {exporting === "pdf" ? "Exporting…" : "⤓ PDF"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: chrome.sub }}>Zoom</span>
+                    <div className="flex items-center rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
+                      <button onClick={() => setPreviewZoom((z) => Math.max(50, z - 10))} className="px-2.5 py-1.5 text-xs font-bold" style={{ background: chrome.panel, color: chrome.sub }}>−</button>
+                      <button onClick={() => setPreviewZoom(100)} title="Reset zoom" className="flex-1 py-1.5" style={{ background: chrome.panel, color: chrome.text, fontSize: 10.5, textAlign: "center", ...fonts.mono }}>{previewZoom}%</button>
+                      <button onClick={() => setPreviewZoom((z) => Math.min(150, z + 10))} className="px-2.5 py-1.5 text-xs font-bold" style={{ background: chrome.panel, color: chrome.sub }}>+</button>
+                    </div>
+                  </div>
+                </div>
               )}
-              <div className="flex items-center rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
-                <button onClick={() => setPreviewZoom((z) => Math.max(50, z - 10))} className="px-2.5 py-1.5 text-xs font-bold" style={{ background: chrome.panel, color: chrome.sub }}>−</button>
-                <button onClick={() => setPreviewZoom(100)} title="Reset zoom" className="px-2 py-1.5" style={{ background: chrome.panel, color: chrome.sub, fontSize: 10.5, ...fonts.mono }}>{previewZoom}%</button>
-                <button onClick={() => setPreviewZoom((z) => Math.min(150, z + 10))} className="px-2.5 py-1.5 text-xs font-bold" style={{ background: chrome.panel, color: chrome.sub }}>+</button>
-              </div>
-              <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
-                {[["light", "☀ Light"], ["dark", "☾ Dark"]].map(([m, l]) => (
-                  <button key={m} onClick={() => setPreviewMode(m)} className="px-3 py-1.5 text-xs font-bold"
-                    style={{ background: previewMode === m ? Y : chrome.panel, color: previewMode === m ? "#17181D" : chrome.sub }}>{l}</button>
-                ))}
-              </div>
-              <div className="flex rounded-md overflow-hidden" style={{ border: `1px solid ${chrome.line}` }}>
-                <button onClick={exportPreviewPng} disabled={!!exporting} title="Download this page as a PNG image"
-                  className="px-2.5 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, cursor: exporting ? "default" : "pointer" }}>
-                  {exporting === "png" ? "Exporting…" : "⤓ PNG"}
-                </button>
-                <button onClick={exportPreviewPdf} disabled={!!exporting} title="Download this page as a PDF"
-                  className="px-2.5 py-1.5 text-xs font-semibold" style={{ background: chrome.panel, color: exporting ? chrome.line : chrome.sub, borderLeft: `1px solid ${chrome.line}`, cursor: exporting ? "default" : "pointer" }}>
-                  {exporting === "pdf" ? "Exporting…" : "⤓ PDF"}
-                </button>
-              </div>
             </div>
           </div>
           {previewIsTwin && (
@@ -783,27 +821,40 @@ export default function Studio() {
               Viewing the auto-derived {previewMode} twin — colors are re-tuned from your base theme for {previewMode} backgrounds. Edits in Brand always apply to the base; the twin follows.
             </p>
           )}
+          {viewMode === "insights" && insightableCells.length > 0 && Object.keys(captionsByIndex).length === 0 && (
+            <p className="mb-2" style={{ fontSize: 10.5, color: chrome.sub }}>
+              Click ⟲ Regenerate insights to add an AI-written caption to every chart and table below.
+            </p>
+          )}
           {viewMode === "insights" && insightsError && <p className="mb-2" style={{ fontSize: 10.5, color: "#F87171" }}>{insightsError}</p>}
           {exportError && <p className="mb-2" style={{ fontSize: 10.5, color: "#F87171" }}>{exportError}</p>}
           <div style={{ overflow: previewZoom > 100 ? "auto" : "visible" }}>
             <div style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: "top left" }}>
-              {/* All three stay mounted, toggled by display:none rather than a
-                  ternary -- switching modes/pages is meant to feel like
-                  flipping pages, not navigating away, so Summary's generated
-                  captions and the Report page's selection/editing state
-                  shouldn't reset just from glancing elsewhere. */}
-              <div style={{ display: viewMode === "insights" && previewPage === 0 ? "block" : "none" }}>
+              {/* Only the active page/mode is ever mounted -- previously all
+                  three stayed in the DOM permanently, just hidden with
+                  display:none, so fetching the page returned every page's
+                  markup at once. Safe to fully unmount the inactive ones:
+                  Summary and KpiDeepDive hold no local state at all (every
+                  prop they read -- theme/layout/dataset/captionsByIndex/
+                  selectedKpiIndex -- lives in Studio), and ReportPreview's
+                  only local state is its transient cell-edit popover, which
+                  resetting when you navigate away is the expected behavior,
+                  not a regression. PNG/PDF export already only ever reads
+                  the ref of whichever page is currently active (see
+                  activePreviewNode below), so an unmounted page's null ref
+                  is never touched. */}
+              {viewMode === "insights" && previewPage === 0 && (
                 <Summary ref={summaryRef} theme={previewTheme} layout={layout} dataset={dataset} domainKey={domainKey} logo={logo}
                   captionsByIndex={captionsByIndex} onSelectKpi={onSelectKpi} />
-              </div>
-              <div style={{ display: viewMode === "insights" && previewPage === 1 ? "block" : "none" }}>
+              )}
+              {viewMode === "insights" && previewPage === 1 && (
                 <KpiDeepDive ref={deepDiveRef} theme={previewTheme} layout={layout} dataset={dataset} domainKey={domainKey} logo={logo}
                   captionsByIndex={captionsByIndex} selectedKpiIndex={selectedKpiIndex} onSelectKpi={onSelectKpi}
                   addFilter={addFilter} removeFilter={removeFilter} setFilterSelection={setFilterSelection} />
-              </div>
-              <div style={{ display: viewMode === "edit" ? "block" : "none" }}>
+              )}
+              {viewMode === "edit" && (
                 <ReportPreview ref={previewRef} domainKey={domainKey} theme={previewTheme} layout={layout} logo={logo} selectedCell={selectedCell} onSelectCell={onSelectCell} dataset={dataset} setCellVisual={setCellVisual} setCellBinding={setCellBinding} setKpiStripBinding={setKpiStripBinding} setFilterSelection={setFilterSelection} setCellHeaderBg={setCellHeaderBg} addFilter={addFilter} removeFilter={removeFilter} hideEditAffordances={!!exporting} />
-              </div>
+              )}
             </div>
           </div>
         </div>

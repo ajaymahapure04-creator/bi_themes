@@ -1,7 +1,7 @@
 "use client";
 import { forwardRef, useMemo, useState } from "react";
 import { DOMAINS, PRESETS, PAGE_SIZES } from "../lib/data";
-import { alpha, shade } from "../lib/utils";
+import { alpha, shade, deltaDirection } from "../lib/utils";
 import { Y } from "../lib/chrome";
 import { resolveCellData } from "../lib/binding-engine";
 import { CellVisual, SlicerTop, SlicerLeft } from "./CellVisual";
@@ -140,9 +140,14 @@ const ReportPreview = forwardRef(function ReportPreview({ domainKey, theme, layo
                   )}
                   <div style={{ fontSize: t.labelSize, color: t.secondaryForeground, fontWeight: 500 }}>{k.label}</div>
                   <div style={{ fontSize: t.calloutSize * 0.72, fontWeight: 700, color: t.foreground, lineHeight: 1.15, margin: "2px 0" }}>{k.value}</div>
-                  {k.delta != null && (
-                    <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.up ? t.good : t.bad }}>{k.up ? "▲" : "▼"} {k.delta}</div>
-                  )}
+                  {k.delta != null && (() => {
+                    const dir = deltaDirection(k.delta);
+                    return (
+                      <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.isGood ? t.good : t.bad }}>
+                        {dir === "down" ? "▼" : dir === "up" ? "▲" : "―"} {k.delta}
+                      </div>
+                    );
+                  })()}
                 </div>
                 );
               })}

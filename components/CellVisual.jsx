@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { alpha, shade } from "../lib/utils";
+import { alpha, shade, deltaDirection } from "../lib/utils";
 import { ColumnChart, HBarChart, LineChart, Donut, GroupedColumnChart } from "./charts";
 import FilterConfigPopover from "./FilterConfigPopover";
 
@@ -38,9 +38,14 @@ export function CellVisual({ type, d, t, idx, headerBg }) {
       <div className="h-full flex flex-col justify-center">
         <div style={{ fontSize: t.labelSize, color: t.secondaryForeground, fontWeight: 500, ...headerBgStyle }}>{k.label}</div>
         <div style={{ fontSize: t.calloutSize * 0.72, fontWeight: 700, color: t.foreground, lineHeight: 1.15, margin: "2px 0" }}>{k.value}</div>
-        {k.delta != null && (
-          <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.up ? t.good : t.bad }}>{k.up ? "▲" : "▼"} {k.delta}</div>
-        )}
+        {k.delta != null && (() => {
+          const dir = deltaDirection(k.delta);
+          return (
+            <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.isGood ? t.good : t.bad }}>
+              {dir === "down" ? "▼" : dir === "up" ? "▲" : "―"} {k.delta}
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -158,9 +163,14 @@ export function KpiCard({ k, t, idx, onClick, active }) {
     >
       <div style={{ fontSize: t.labelSize, color: t.secondaryForeground, fontWeight: 500 }}>{k.label}{onClick && <span style={{ marginLeft: 5, fontSize: t.labelSize - 1, color: t.tableAccent }}>⤷ drill in</span>}</div>
       <div style={{ fontSize: t.calloutSize * 0.72, fontWeight: 700, color: t.foreground, lineHeight: 1.15, margin: "2px 0" }}>{k.value}</div>
-      {k.delta != null && (
-        <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.up ? t.good : t.bad }}>{k.up ? "▲" : "▼"} {k.delta}</div>
-      )}
+      {k.delta != null && (() => {
+        const dir = deltaDirection(k.delta);
+        return (
+          <div style={{ fontSize: t.labelSize, fontWeight: 600, color: k.isGood ? t.good : t.bad }}>
+            {dir === "down" ? "▼" : dir === "up" ? "▲" : "―"} {k.delta}
+          </div>
+        );
+      })()}
     </div>
   );
 }

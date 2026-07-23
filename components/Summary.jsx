@@ -80,8 +80,13 @@ const Summary = forwardRef(function Summary({ theme, layout, dataset, domainKey,
                 <div style={{ fontSize: 12, color: theme.tableAccent, flexShrink: 0 }}>✦</div>
                 <div className="min-w-0">
                   <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: theme.tableAccent, marginBottom: 2 }}>AI Summary</div>
-                  <p style={{ fontSize: theme.labelSize + 0.5, lineHeight: 1.45, color: theme.foreground, margin: 0 }}>
-                    {captionsByIndex[item.i] || "Click ⟲ Regenerate insights to add a caption."}
+                  {/* No placeholder sentence when a caption hasn't been generated
+                      yet -- that instruction now lives once, next to the
+                      "Regenerate insights" button, instead of repeating per card.
+                      minHeight reserves one line so the box doesn't collapse/
+                      shift once real captions start arriving. */}
+                  <p style={{ fontSize: theme.labelSize + 0.5, lineHeight: 1.45, color: theme.foreground, margin: 0, minHeight: (theme.labelSize + 0.5) * 1.45 }}>
+                    {captionsByIndex[item.i] || ""}
                   </p>
                 </div>
               </div>

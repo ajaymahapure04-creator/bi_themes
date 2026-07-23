@@ -2,7 +2,7 @@
 import { forwardRef } from "react";
 import { PAGE_SIZES } from "../lib/data";
 import { useReportVisuals } from "../lib/useReportVisuals";
-import { alpha } from "../lib/utils";
+import { alpha, deltaDirection } from "../lib/utils";
 import { CellVisual, KpiCard, SlicerTop } from "./CellVisual";
 
 // "Page 2" of Studio's Live report preview (Insights mode) -- a deep dive on
@@ -65,11 +65,14 @@ const KpiDeepDive = forwardRef(function KpiDeepDive(
               <div style={{ fontSize: theme.labelSize - 0.5, fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase", color: theme.secondaryForeground, marginBottom: 2 }}>{kpi.label}</div>
               <div style={{ fontSize: theme.calloutSize, fontWeight: 800, color: theme.foreground, lineHeight: 1 }}>{kpi.value}</div>
             </div>
-            {kpi.delta != null && (
-              <div style={{ fontSize: theme.labelSize + 1, fontWeight: 700, color: kpi.up ? theme.good : theme.bad, marginLeft: "auto" }}>
-                {kpi.up ? "▲" : "▼"} {kpi.delta}
-              </div>
-            )}
+            {kpi.delta != null && (() => {
+              const dir = deltaDirection(kpi.delta);
+              return (
+                <div style={{ fontSize: theme.labelSize + 1, fontWeight: 700, color: kpi.isGood ? theme.good : theme.bad, marginLeft: "auto" }}>
+                  {dir === "down" ? "▼" : dir === "up" ? "▲" : "―"} {kpi.delta}
+                </div>
+              );
+            })()}
           </div>
 
           <div style={{ marginBottom: 10 }}>
@@ -102,8 +105,8 @@ const KpiDeepDive = forwardRef(function KpiDeepDive(
                     <div style={{ fontSize: 12, color: theme.tableAccent, flexShrink: 0 }}>✦</div>
                     <div className="min-w-0">
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: theme.tableAccent, marginBottom: 2 }}>AI Summary</div>
-                      <p style={{ fontSize: theme.labelSize + 0.5, lineHeight: 1.45, color: theme.foreground, margin: 0 }}>
-                        {captionsByIndex[item.i] || "Click ⟲ Regenerate insights (on the Summary page) to add a caption."}
+                      <p style={{ fontSize: theme.labelSize + 0.5, lineHeight: 1.45, color: theme.foreground, margin: 0, minHeight: (theme.labelSize + 0.5) * 1.45 }}>
+                        {captionsByIndex[item.i] || ""}
                       </p>
                     </div>
                   </div>
