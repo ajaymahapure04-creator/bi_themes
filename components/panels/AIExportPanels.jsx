@@ -74,7 +74,7 @@ const ORDER_STEPS = {
   ready: "Ready",
 };
 
-export function OrderPanel({ theme, set, validation, orderStatus, startOrder, themeJson, lightJson, darkJson, layoutJson, slug, downloadFile, downloadPair, copyJson, copied, pbipStatus, downloadPbipProject }) {
+export function OrderPanel({ theme, set, validation, orderStatus, startOrder, themeJson, lightJson, darkJson, layoutJson, slug, downloadFile, downloadPair, copyJson, copied, pbipStatus, downloadPbipProject, htmlStatus, downloadHtmlDashboard }) {
   const ordering = orderStatus && orderStatus !== "ready";
   const ready = orderStatus === "ready";
 
@@ -132,12 +132,22 @@ export function OrderPanel({ theme, set, validation, orderStatus, startOrder, th
               Power BI has no runtime theme switching, so use the standard workaround: 1) Build your page with the <b>light</b> theme applied. 2) Duplicate the page, apply the <b>dark</b> theme styling to the copy. 3) Add a button on each page (Insert → Buttons) with a <b>Page navigation</b> action pointing to the other page. End users get a working ☀/☾ toggle.
             </p>
           </div>
-          <Field label="Power BI project">
-            <button onClick={downloadPbipProject} disabled={pbipStatus === "building"} className="w-full py-2.5 text-sm font-bold rounded-md"
-              style={{ background: pbipStatus === "building" ? chrome.panel : Y, color: pbipStatus === "building" ? chrome.sub : "#17181D" }}>
-              {pbipStatus === "building" ? "Building project…" : "⬇ Download Power BI project (.pbip)"}
-            </button>
-            {pbipStatus === "error" && <p className="mt-1.5" style={{ fontSize: 10.5, color: "#F87171" }}>Couldn't build the project — try again, or fall back to the theme + layout spec above.</p>}
+          <Field label="Deliver as — pick your target">
+            <div className="flex flex-col gap-2">
+              <button onClick={downloadPbipProject} disabled={pbipStatus === "building"} className="w-full py-2.5 text-sm font-bold rounded-md"
+                style={{ background: pbipStatus === "building" ? chrome.panel : Y, color: pbipStatus === "building" ? chrome.sub : "#17181D" }}>
+                {pbipStatus === "building" ? "Building project…" : "⬇ Power BI project (.pbip)"}
+              </button>
+              {pbipStatus === "error" && <p style={{ fontSize: 10.5, color: "#F87171" }}>Couldn't build the project — try again, or fall back to the theme + layout spec above.</p>}
+              <button onClick={downloadHtmlDashboard} disabled={htmlStatus === "building"} className="w-full py-2.5 text-sm font-bold rounded-md"
+                style={{ background: "transparent", color: htmlStatus === "building" ? chrome.sub : chrome.text, border: `1px solid ${chrome.line}` }}>
+                {htmlStatus === "building" ? "Building dashboard…" : "🌐 Web dashboard (.html)"}
+              </button>
+              {htmlStatus === "error" && <p style={{ fontSize: 10.5, color: "#F87171" }}>Couldn't build the web dashboard — try again.</p>}
+            </div>
+            <p className="mt-1.5" style={{ fontSize: 10.5, color: chrome.sub, lineHeight: 1.5 }}>
+              <b>Power BI</b> for governed, refreshable BI inside your org. <b>Web dashboard</b> is a single self-contained HTML file — premium dark, animated, embeddable anywhere, no Power BI needed. It's a data snapshot, not a live connection.
+            </p>
           </Field>
           <div className="p-3 rounded-md mb-3" style={{ background: alpha(Y, 0.08), border: `1px solid ${chrome.line}` }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: Y, letterSpacing: 0.4, marginBottom: 4 }}>HOW TO OPEN IT</div>
