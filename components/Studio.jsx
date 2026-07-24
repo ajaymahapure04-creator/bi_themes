@@ -10,6 +10,7 @@ import { sanitizeAiBinding } from "../lib/binding-engine";
 import { exportNodeAsPng, exportNodeAsPdf } from "../lib/export-image";
 import { useReportVisuals, buildVisualPayload, unwrapResolved } from "../lib/useReportVisuals";
 import { buildPbipProject, zipPbipProject } from "../lib/pbip-export";
+import { buildHtmlDashboard } from "../lib/html-export";
 import { Y, chrome, fonts } from "../lib/chrome";
 import { AccordionSection, Stepper } from "./ui";
 import ReportPreview from "./ReportPreview";
@@ -108,6 +109,7 @@ export default function Studio() {
   const orderTimersRef = useRef([]);
   const orderMountedRef = useRef(false);
   const [pbipStatus, setPbipStatus] = useState(null); // null | "building" | "error"
+  const [htmlStatus, setHtmlStatus] = useState(null); // null | "building" | "error" -- web dashboard export
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiImage, setAiImage] = useState(null); // base64 data URL or null -- ephemeral, not autosaved (matches aiPrompt)
   const [aiLoading, setAiLoading] = useState(false);
@@ -645,6 +647,29 @@ export default function Studio() {
     }
   };
 
+  // Standalone premium-dark HTML dashboard export -- the "web view" delivery
+  // target, an alternative to the Power BI project. Uses the previewTheme (so
+  // the ☀/☾ toggle's active half feeds the brand colors) and the same
+  // layout/dataset the rest of the export path reads.
+  const downloadHtmlDashboard = () => {
+    if (htmlStatus === "building") return;
+    setHtmlStatus("building");
+    try {
+      const html = buildHtmlDashboard({ theme: previewTheme, layout, domainKey, dataset, logo });
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slug}-dashboard.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setHtmlStatus(null);
+    } catch (e) {
+      console.error("HTML export failed:", e);
+      setHtmlStatus("error");
+    }
+  };
+
   const resetProject = () => {
     const snapshot = { domainKey, theme, layout, logo, brandName, brandNote, tab, selectedCell };
     localStorage.removeItem(STORAGE_KEY);
@@ -724,7 +749,7 @@ export default function Studio() {
             </AccordionSection>
 
             <AccordionSection id="order" step={4} label="Validate & Order" subtitle="Check the live preview, then order the package" tab={tab} setTab={setTab} visited={visitedTabs.has("order")}>
-              <OrderPanel theme={theme} set={set} validation={validation} orderStatus={orderStatus} startOrder={startOrder} themeJson={themeJson} lightJson={lightJson} darkJson={darkJson} layoutJson={layoutJson} slug={slug} downloadFile={downloadFile} downloadPair={downloadPair} copyJson={copyJson} copied={copied} pbipStatus={pbipStatus} downloadPbipProject={downloadPbipProject} />
+              <OrderPanel theme={theme} set={set} validation={validation} orderStatus={orderStatus} startOrder={startOrder} themeJson={themeJson} lightJson={lightJson} darkJson={darkJson} layoutJson={layoutJson} slug={slug} downloadFile={downloadFile} downloadPair={downloadPair} copyJson={copyJson} copied={copied} pbipStatus={pbipStatus} downloadPbipProject={downloadPbipProject} htmlStatus={htmlStatus} downloadHtmlDashboard={downloadHtmlDashboard} />
             </AccordionSection>
           </div>
         ) : (
